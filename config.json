@@ -1,8 +1,10 @@
 {
-  "base_url": "https://example.com",
+  "base_url": "https://fikfap.com/",
   "xpaths": [
-    "//div[@class='title']/text()",
-    "//span[@class='date']/text()",
-    "//p[@class='description']/text()"
+    "//*[@id=\"root\"]/div/div[1]/div[1]/div/div/div[1]/div/div/div[4]/div[2]/div[2]/div",
+    "//*[@id=\"root\"]/div/div[1]/div[1]/div/div/div[1]/div/div/div[4]/div[1]/div[2]/div[1]/div[2]", 
+    "//*[@id=\"root\"]/div/div[1]/div[1]/div/div/div[1]/div/div/div[4]/div[2]/div[1]/div[2]/div/h1", 
+    "//*[@id=\"root\"]/div/div[1]/div[1]/div/div/div[1]/div/div/div[4]/div[2]/div[1]/div[1]/img", 
+    "//*[@id=\"root\"]/div/div[1]/div[1]/div/div/div[1]/div/div/div[1]/video" 
   ]
 }
