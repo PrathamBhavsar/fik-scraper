@@ -2,9 +2,16 @@
   "base_url": "https://fikfap.com/",
   "xpaths": [
     "//*[@id=\"root\"]/div/div[1]/div[1]/div/div/div[1]/div/div/div[4]/div[2]/div[2]/div",
-    "//*[@id=\"root\"]/div/div[1]/div[1]/div/div/div[1]/div/div/div[4]/div[1]/div[2]/div[1]/div[2]", 
-    "//*[@id=\"root\"]/div/div[1]/div[1]/div/div/div[1]/div/div/div[4]/div[2]/div[1]/div[2]/div/h1", 
-    "//*[@id=\"root\"]/div/div[1]/div[1]/div/div/div[1]/div/div/div[4]/div[2]/div[1]/div[1]/img", 
-    "//*[@id=\"root\"]/div/div[1]/div[1]/div/div/div[1]/div/div/div[1]/video" 
-  ]
+    "//*[@id=\"root\"]/div/div[1]/div[1]/div/div/div[1]/div/div/div[4]/div[1]/div[2]/div[1]/div[2]",
+    "//*[@id=\"root\"]/div/div[1]/div[1]/div/div/div[1]/div/div/div[4]/div[2]/div[1]/div[2]/div/h1",
+    "//*[@id=\"root\"]/div/div[1]/div[1]/div/div/div[1]/div/div/div[4]/div[2]/div[1]/div[1]/img",
+    "//*[@id=\"root\"]/div/div[1]/div[1]/div/div/div[1]/div/div/div[1]/video"
+  ],
+  "download_folder": "downloads",
+  "m3u8_settings": {
+    "exclude_vp9": true,
+    "max_retries": 3,
+    "timeout": 30,
+    "concurrent_downloads": 5
+  }
 }
