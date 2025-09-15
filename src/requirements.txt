@@ -1,3 +1,6 @@
+playwright
+aiohttp
+aiofiles
 crawl4AI
 requests
 jsonschema
