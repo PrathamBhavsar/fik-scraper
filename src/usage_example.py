@@ -1,28 +1,46 @@
 """
-Simple Usage Example for IDM Video Downloader
+Fixed Usage Example for IDM Video Downloader
 
-This file shows how to use the IDM integration system with minimal setup.
+This file shows how to use the FIXED IDM integration system with proper
+directory structure and enhanced error handling.
+
+FIXES APPLIED:
+- Enhanced IDM executable detection
+- Proper Windows path formatting  
+- Directory pre-creation
+- Better error handling
+- Optimized IDM command parameters
 """
 
 import asyncio
-from idm_manger import VideoIDMProcessor, IDMManager
+from idm_manager import FixedVideoIDMProcessor, FixedIDMManager
 
-
-async def simple_example():
-    """Simple example of using the IDM integration system."""
+async def fixed_example():
+    """Fixed example of using the IDM integration system."""
 
     # Configuration - CHANGE THESE VALUES
     BASE_URL = "https://rule34video.com"  # Your target website
-    DOWNLOAD_DIR = "my_downloads"         # Where to save files
-
-    print("🎬 Simple IDM Video Downloader")
+    DOWNLOAD_DIR = "my_downloads"         # Where to save files (will create video_id subfolders)
+    
+    print("🔧 FIXED IDM Video Downloader")
+    print("="*50)
+    print("🎯 Expected structure:")
+    print("   my_downloads/")
+    print("   ├── video_id_1/")
+    print("   │   ├── video_id_1.mp4")
+    print("   │   ├── video_id_1.jpg")  
+    print("   │   └── video_id_1.json")
+    print("   └── video_id_2/")
+    print("       ├── video_id_2.mp4")
+    print("       ├── video_id_2.jpg")
+    print("       └── video_id_2.json")
     print("="*50)
 
-    # Create the processor
-    processor = VideoIDMProcessor(
+    # Create the fixed processor
+    processor = FixedVideoIDMProcessor(
         base_url=BASE_URL,
         download_dir=DOWNLOAD_DIR,
-        use_idm_library=False  # Use command line method
+        idm_path=None  # Auto-detect IDM
     )
 
     # Process all videos
@@ -31,13 +49,14 @@ async def simple_example():
     if results["success"]:
         print("\n✅ Success! Check IDM for downloads.")
         print(f"📊 Found {results['videos_parsed']} videos")
-        print(f"📁 Saved to: {results['download_directory']}")
+        print(f"📁 Files will be saved to: {results['download_directory']}")
+        print("🎯 Each video gets its own folder with video_id as folder name")
     else:
         print(f"\n❌ Error: {results['error']}")
 
 
-async def manual_example():
-    """Example of manually controlling the IDM manager."""
+async def manual_fixed_example():
+    """Example of manually controlling the FIXED IDM manager."""
 
     # Sample video data (normally this comes from the parser)
     sample_videos = [
@@ -49,22 +68,64 @@ async def manual_example():
         }
     ]
 
-    # Create IDM manager
-    idm = IDMManager(
+    print("🔧 Manual FIXED IDM Manager Test")
+    print("="*40)
+    
+    # Create fixed IDM manager
+    idm = FixedIDMManager(
         base_download_dir="manual_downloads",
-        use_idm_library=False
     )
 
-    # Process videos
+    # Process videos with the fixed system
     results = idm.process_all_videos(sample_videos, start_queue=True)
 
-    print(f"✅ Processed {results['successful_additions']} videos")
+    print(f"\n📊 RESULTS:")
+    print(f"✅ Processed videos: {results['successful_additions']}")
+    print(f"❌ Failed videos: {results['failed_additions']}")
+    print(f"📂 Directories created: {results['directories_created']}")
+    print(f"📥 Queue items: {results['download_queue_size']}")
+    print(f"🚀 Queue started: {results['queue_started']}")
     print(f"📁 Directory: {results['download_directory']}")
 
 
+async def test_idm_detection():
+    """Test IDM detection and validation."""
+    
+    print("🔍 Testing IDM Detection...")
+    print("="*30)
+    
+    # Create manager to test detection
+    idm = FixedIDMManager("test_downloads")
+    
+    print(f"IDM Path: {idm.idm_path}")
+    print(f"Base Dir: {idm.base_download_dir}")
+    
+    # Get queue info
+    queue_info = idm.get_queue_info()
+    print(f"Queue Info: {queue_info}")
+
+
 if __name__ == "__main__":
-    # Run the simple example
-    asyncio.run(simple_example())
+    print("🎬 FIXED IDM Integration System")
+    print("=" * 50)
+    print("🔧 Major fixes applied:")
+    print("   - Better IDM executable detection")
+    print("   - Proper Windows path handling") 
+    print("   - Directory pre-creation")
+    print("   - Enhanced error reporting")
+    print("   - Optimized IDM commands")
+    print("=" * 50)
+    print()
+    
+    # Choose which example to run:
+    
+    print("1. Testing IDM detection...")
+    asyncio.run(test_idm_detection())
+    
+    print("\n2. Running fixed example...")
+    # Run the fixed example
+    asyncio.run(fixed_example())
 
     # Uncomment to run manual example instead:
-    # asyncio.run(manual_example())
+    # print("\n3. Running manual example...")
+    # asyncio.run(manual_fixed_example())
