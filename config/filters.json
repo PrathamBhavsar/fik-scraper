@@ -1,0 +1,28 @@
+{
+    "content": {
+        "min_duration": 10,
+        "max_duration": 3600,
+        "min_views": 100,
+        "blocked_users": [],
+        "blocked_hashtags": [],
+        "explicitness_ratings": [
+            "FULLY_EXPLICIT"
+        ]
+    },
+    "codecs": {
+        "exclude_vp9": false,
+        "vp9_patterns": [
+            "vp9_",
+            "vp09."
+        ],
+        "preferred_codecs": [
+            "avc1",
+            "h264"
+        ]
+    },
+    "quality": {
+        "min_resolution": "240p",
+        "max_resolution": "1080p",
+        "exclude_resolutions": []
+    }
+}

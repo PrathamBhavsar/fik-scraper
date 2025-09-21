@@ -1,0 +1,41 @@
+{
+  "api": {
+    "base_url": "https://api.fikfap.com",
+    "timeout": 30,
+    "max_retries": 3,
+    "rate_limit": 1.0
+  },
+  "download": {
+    "concurrent_downloads": 5,
+    "chunk_size": 8192,
+    "verify_ssl": true,
+    "user_agent": "FikFap-Scraper/2.0"
+  },
+  "quality": {
+    "exclude_vp9": false,
+    "preferred_qualities": ["1080p", "720p", "480p", "360p", "240p"],
+    "download_all_qualities": true
+  },
+  "storage": {
+    "base_path": "./downloads"
+  },
+  "logging": {
+    "level": "INFO",
+    "file": "logs/fikfap_scraper.log",
+    "max_size": "10MB",
+    "backup_count": 5
+  },
+  "monitoring": {
+    "check_disk_space": true,
+    "min_disk_space_gb": 5.0,
+    "alert_enabled": true
+  },
+  "ftp": {
+    "enabled": false,
+    "host": "",
+    "port": 21,
+    "username": "",
+    "password": "",
+    "remote_path": "/uploads"
+  }
+}
