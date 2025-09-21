@@ -7,17 +7,37 @@
   },
   "download": {
     "concurrent_downloads": 5,
+    "concurrent_fragments": 10,
     "chunk_size": 8192,
+    "fragment_timeout": 15,
     "verify_ssl": true,
-    "user_agent": "FikFap-Scraper/2.0"
+    "user_agent": "FikFap-Scraper/2.0",
+    "max_fragment_retries": 3,
+    "enable_resume": true,
+    "temp_dir": "./downloads/.temp",
+    "progress_update_interval": 1.0
   },
   "quality": {
     "exclude_vp9": false,
-    "preferred_qualities": ["1080p", "720p", "480p", "360p", "240p"],
-    "download_all_qualities": true
+    "preferred_qualities": [
+      "1080p",
+      "720p",
+      "480p",
+      "360p",
+      "240p"
+    ],
+    "download_all_qualities": true,
+    "auto_select_best": false,
+    "min_bandwidth": 100000,
+    "max_bandwidth": 10000000
   },
   "storage": {
-    "base_path": "./downloads"
+    "base_path": "./downloads",
+    "organize_by_author": true,
+    "organize_by_date": false,
+    "filename_template": "{author}_{title}_{resolution}_{postId}",
+    "max_filename_length": 200,
+    "sanitize_filenames": true
   },
   "logging": {
     "level": "INFO",
@@ -28,7 +48,8 @@
   "monitoring": {
     "check_disk_space": true,
     "min_disk_space_gb": 5.0,
-    "alert_enabled": true
+    "alert_enabled": true,
+    "progress_callback_enabled": true
   },
   "ftp": {
     "enabled": false,

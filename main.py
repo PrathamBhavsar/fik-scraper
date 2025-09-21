@@ -77,7 +77,7 @@ async def test_data_validation(logger):
         'bunnyVideoId': 'bunny-123',
         'userId': 'user-123',
         'label': 'Test Video for Phase 2',
-        'videoStreamUrl': 'https://example.com/video.m3u8',
+        'videoStreamUrl': 'https://api.fikfap.com/video.m3u8',
         'publishedAt': datetime.now().isoformat(),
         'viewsCount': 1000,
         'likesCount': 50,
@@ -136,8 +136,8 @@ async def test_video_extraction(scraper, logger):
             'userId': 'user-test-123',
             'label': 'Phase 2 Test Video - Data Extraction Demo',
             'description': 'This is a test video to demonstrate Phase 2 data extraction capabilities including comprehensive metadata processing and validation.',
-            'videoStreamUrl': 'https://example.com/test/video.m3u8',
-            'thumbnailUrl': 'https://example.com/test/thumbnail.jpg',
+            'videoStreamUrl': 'https://api.fikfap.com/test/video.m3u8',
+            'thumbnailUrl': 'https://api.fikfap.com/test/thumbnail.jpg',
             'duration': 180,
             'viewsCount': 5000,
             'likesCount': 250,
@@ -154,7 +154,7 @@ async def test_video_extraction(scraper, logger):
                 'isPartner': False,
                 'isPremium': True,
                 'description': 'Test creator for Phase 2 development',
-                'thumbnailUrl': 'https://example.com/test/creator.jpg',
+                'thumbnailUrl': 'https://api.fikfap.com/test/creator.jpg',
                 'followerCount': 10000,
                 'followingCount': 500,
                 'postCount': 150,
@@ -226,7 +226,7 @@ playlists/vp9_720p.m3u8"""
 
     try:
         # Test playlist parsing
-        base_url = 'https://example.com/test/master.m3u8'
+        base_url = 'https://api.fikfap.com/test/master.m3u8'
         playlist_urls = await scraper.extractor.parse_master_playlist(mock_master_playlist, base_url)
 
         if playlist_urls:

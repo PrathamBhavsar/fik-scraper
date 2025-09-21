@@ -116,23 +116,13 @@ class VideoQuality(BaseModel):
                 return VideoCodec.HEVC
         return v or VideoCodec.UNKNOWN
 
-    @model_validator(mode='after')
+    @model_validator(mode='before')
+    @classmethod
     def set_vp9_flag(cls, values):
-        """Set VP9 flag based on codec or URL patterns"""
-        codec = values.get('codec')
-        playlist_url = values.get('playlist_url', '')
-
-        is_vp9 = False
-        if codec in [VideoCodec.VP9, VideoCodec.VP09]:
-            is_vp9 = True
-        elif isinstance(playlist_url, str):
-            url_lower = playlist_url.lower()
-            if 'vp9_' in url_lower or 'vp09' in url_lower:
-                is_vp9 = True
-                if codec == VideoCodec.UNKNOWN:
-                    values['codec'] = VideoCodec.VP9
-
-        values['is_vp9'] = is_vp9
+        if isinstance(values, dict):
+            codec = values.get('codec')
+            if codec and ('vp9' in str(codec).lower() or 'vp09' in str(codec)):
+                values['is_vp9'] = True
         return values
 
 class VideoPost(BaseModel):

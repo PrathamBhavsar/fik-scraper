@@ -157,7 +157,7 @@ class FikFapDataExtractor:
                 'userId': video_data.get('userId', 'mock-user-id'),
                 'label': video_data.get('label') or video_data.get('title', 'Mock Video'),
                 'description': video_data.get('description'),
-                'videoStreamUrl': video_data.get('videoStreamUrl') or video_data.get('streamUrl', 'https://example.com/mock.m3u8'),
+                'videoStreamUrl': video_data.get('videoStreamUrl') or video_data.get('streamUrl', 'https://api.fikfap.com/mock.m3u8'),
                 'thumbnailUrl': video_data.get('thumbnailUrl') or video_data.get('thumbnail'),
                 'duration': video_data.get('duration'),
                 'viewsCount': video_data.get('viewsCount', 0),
@@ -373,7 +373,7 @@ class FikFapDataExtractor:
                 # Return mock quality for testing
                 return [VideoQuality(
                     resolution="720p",
-                    playlist_url="https://example.com/720p.m3u8"
+                    playlist_url="https://api.fikfap.com/720p.m3u8"
                 )]
 
             # Extract M3U8 playlist URLs
