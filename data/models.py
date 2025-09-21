@@ -1,11 +1,12 @@
 """
 Enhanced data models for FikFap Scraper with comprehensive validation
-Phase 2: Complete data classes with proper typing and validation
+Phase 4: Complete with storage and file management models
 """
 from typing import Optional, List, Dict, Any, Union, Literal
 from datetime import datetime
-from pydantic import BaseModel, HttpUrl, Field, model_validator, validator, root_validator
+from pydantic import BaseModel, HttpUrl, Field, model_validator, validator
 from enum import Enum
+from pathlib import Path
 import re
 
 class ExplicitnessRating(str, Enum):
@@ -32,6 +33,23 @@ class DownloadStatus(str, Enum):
     FAILED = "failed"
     PAUSED = "paused"
     CANCELLED = "cancelled"
+
+class ProcessingStatus(str, Enum):
+    """Processing status for metadata tracking"""
+    NEW = "new"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    SKIPPED = "skipped"
+    DUPLICATE = "duplicate"
+
+class StorageFormat(str, Enum):
+    """Storage format enumeration"""
+    MP4 = "mp4"
+    MKV = "mkv"
+    AVI = "avi"
+    MOV = "mov"
+    M3U8 = "m3u8"
 
 class ProfileLink(BaseModel):
     """Profile link model for author social links"""
@@ -160,7 +178,6 @@ class VideoPost(BaseModel):
         """Clean and validate hashtags"""
         if not isinstance(v, list):
             return []
-
         cleaned_tags = []
         for tag in v:
             if isinstance(tag, str) and tag.strip():
@@ -207,9 +224,102 @@ class SystemStatus(BaseModel):
             self.cpuUsagePercent < 95
         )
 
+# Phase 4: Storage & File Management Models
+
+class StorageMetadata(BaseModel):
+    """Metadata for stored files and downloads"""
+    postId: int = Field(..., gt=0)
+    mediaId: str = Field(...)
+    title: str = Field(...)
+    author: str = Field(...)
+    authorId: str = Field(...)
+    publishedAt: datetime = Field(...)
+    downloadedAt: datetime = Field(default_factory=datetime.now)
+    fileSize: int = Field(default=0, ge=0)
+    filePath: str = Field(...)
+    fileName: str = Field(...)
+    quality: str = Field(...)
+    resolution: str = Field(...)
+    codec: VideoCodec = Field(default=VideoCodec.UNKNOWN)
+    duration: Optional[int] = Field(None, ge=0)
+    format: StorageFormat = Field(default=StorageFormat.MP4)
+    checksum: Optional[str] = Field(None)
+    tags: List[str] = Field(default_factory=list)
+    processingStatus: ProcessingStatus = Field(default=ProcessingStatus.NEW)
+    downloadJobId: Optional[str] = Field(None)
+
+class DirectoryStructure(BaseModel):
+    """Directory structure information"""
+    postId: int = Field(..., gt=0)
+    basePath: str = Field(...)
+    authorPath: Optional[str] = Field(None)
+    datePath: Optional[str] = Field(None)
+    postPath: str = Field(...)
+    m3u8Path: str = Field(...)
+    qualityPaths: Dict[str, str] = Field(default_factory=dict)
+    metadataPath: str = Field(...)
+    
+    def get_full_path(self, quality: Optional[str] = None) -> Path:
+        """Get full path for storage"""
+        if quality and quality in self.qualityPaths:
+            return Path(self.qualityPaths[quality])
+        return Path(self.postPath)
+
+class ProcessingRecord(BaseModel):
+    """Record of processing attempts"""
+    postId: int = Field(..., gt=0)
+    processingId: str = Field(...)
+    status: ProcessingStatus = Field(default=ProcessingStatus.NEW)
+    startedAt: datetime = Field(default_factory=datetime.now)
+    completedAt: Optional[datetime] = Field(None)
+    attempts: int = Field(default=1, ge=1)
+    lastError: Optional[str] = Field(None)
+    downloadJobs: List[str] = Field(default_factory=list)
+    storedFiles: List[str] = Field(default_factory=list)
+    
+    @property
+    def is_completed(self) -> bool:
+        return self.status == ProcessingStatus.COMPLETED
+    
+    @property
+    def is_failed(self) -> bool:
+        return self.status == ProcessingStatus.FAILED
+
+class DiskUsageInfo(BaseModel):
+    """Disk usage information"""
+    totalGb: float = Field(..., ge=0)
+    usedGb: float = Field(..., ge=0) 
+    freeGb: float = Field(..., ge=0)
+    usagePercent: float = Field(..., ge=0, le=100)
+    path: str = Field(...)
+    lastChecked: datetime = Field(default_factory=datetime.now)
+    
+    @property
+    def is_low_space(self) -> bool:
+        """Check if disk space is low"""
+        return self.usagePercent > 85.0 or self.freeGb < 1.0
+
+class CleanupSummary(BaseModel):
+    """Summary of cleanup operations"""
+    operation: str = Field(...)
+    filesRemoved: int = Field(default=0, ge=0)
+    bytesFreed: int = Field(default=0, ge=0)
+    directoriesRemoved: int = Field(default=0, ge=0)
+    errors: List[str] = Field(default_factory=list)
+    duration: float = Field(default=0.0, ge=0)
+    timestamp: datetime = Field(default_factory=datetime.now)
+    
+    @property
+    def success_rate(self) -> float:
+        """Calculate success rate percentage"""
+        total_operations = self.filesRemoved + self.directoriesRemoved + len(self.errors)
+        if total_operations == 0:
+            return 100.0
+        return ((total_operations - len(self.errors)) / total_operations) * 100
+
 # Export all models
 __all__ = [
-    'ExplicitnessRating', 'VideoCodec', 'DownloadStatus',
-    'ProfileLink', 'Author', 'VideoQuality', 'VideoPost',
-    'DownloadJob', 'SystemStatus'
+    'ExplicitnessRating', 'VideoCodec', 'DownloadStatus', 'ProcessingStatus', 'StorageFormat',
+    'ProfileLink', 'Author', 'VideoQuality', 'VideoPost', 'DownloadJob', 'SystemStatus',
+    'StorageMetadata', 'DirectoryStructure', 'ProcessingRecord', 'DiskUsageInfo', 'CleanupSummary'
 ]

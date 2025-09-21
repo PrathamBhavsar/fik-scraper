@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 """
-FikFap Scraper - Phase 2 Main Entry Point
-Enhanced with comprehensive data extraction and validation
+FikFap Scraper - Enhanced Main Entry Point with Phase 4 Storage Integration
+Complete integration of all phases with storage & file management
 """
 import asyncio
 import sys
 import os
-import json
 from pathlib import Path
 from datetime import datetime
 
@@ -17,354 +16,451 @@ os.chdir(project_root)
 
 from core.config import config
 from core.base_scraper import BaseScraper
-from core.exceptions import ConfigurationError, APIError
+from core.exceptions import *
+from storage.file_manager import FileManager
+from storage.metadata_handler import MetadataHandler
+from utils.monitoring import SystemMonitor, DiskMonitor
 from utils.logger import setup_logger
-from data.models import VideoPost
-from data.extractor import FikFapDataExtractor
-from data.validator import DataValidator
+from data.models import VideoPost, ProcessingStatus
+from typing import Optional, List, Dict, Any, Union, Literal
 
-async def test_data_extraction():
-    """Test comprehensive data extraction capabilities"""
-    logger = setup_logger("fikfap_scraper", config.log_level, config.log_file)
 
-    logger.info("=== FikFap Scraper Phase 2 - Data Extraction Test ===")
+class FikFapScraperPhase4:
+    """
+    Complete FikFap scraper with Phase 4 storage integration
 
-    # Validate configuration
-    config_issues = config.validate_config()
-    if config_issues:
-        logger.warning("Configuration issues found:")
-        for issue in config_issues:
-            logger.warning(f"  - {issue}")
+    Features:
+    - All Phase 1-3 capabilities
+    - Advanced storage and file management
+    - System monitoring and health checks
+    - Metadata persistence and processing history
+    """
 
-    # Log configuration summary
-    config_summary = config.get_config_summary()
-    logger.info("Configuration Summary:")
-    for section, settings in config_summary.items():
-        logger.info(f"  {section}: {settings}")
+    def __init__(self):
+        """Initialize complete scraper system"""
+        self.logger = setup_logger("fikfap_scraper", config.log_level, config.log_file)
 
-    try:
-        async with BaseScraper() as scraper:
-            logger.info("✅ Scraper initialized with data extraction capabilities")
+        # Phase 1-3: Core scraping and downloading
+        self.scraper: BaseScraper = None
 
-            # Test 1: Mock data validation
-            await test_data_validation(logger)
+        # Phase 4: Storage & monitoring
+        self.file_manager = FileManager()
+        self.metadata_handler = MetadataHandler()
+        self.system_monitor = SystemMonitor()
 
-            # Test 2: Mock video extraction
-            await test_video_extraction(scraper, logger)
+        # System state
+        self.is_running = False
 
-            # Test 3: Mock M3U8 processing
-            await test_m3u8_processing(scraper, logger)
+        self.logger.info("FikFap Scraper Phase 4 initialized - Storage & File Management ready")
 
-            # Test 4: Quality filtering
-            await test_quality_filtering(scraper, logger)
+    async def __aenter__(self):
+        """Async context manager entry"""
+        await self.start()
+        return self
 
-            logger.info("🎉 Phase 2 data extraction tests completed successfully!")
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Async context manager exit"""
+        await self.stop()
 
-    except Exception as e:
-        logger.error(f"❌ Phase 2 test failed: {e}")
-        raise
+    async def start(self):
+        """Start all scraper components"""
+        try:
+            self.logger.info("🚀 Starting FikFap Scraper with Phase 4 capabilities...")
 
-async def test_data_validation(logger):
-    """Test data validation capabilities"""
-    logger.info("🧪 Testing data validation...")
+            # Check system health before starting
+            await self._perform_health_checks()
 
-    validator = DataValidator()
+            # Initialize core scraper
+            self.scraper = BaseScraper()
+            await self.scraper.start_session()
 
-    # Test valid video data
-    valid_video_data = {
-        'postId': 12345,
-        'mediaId': 'media-123',
-        'bunnyVideoId': 'bunny-123',
-        'userId': 'user-123',
-        'label': 'Test Video for Phase 2',
-        'videoStreamUrl': 'https://api.fikfap.com/video.m3u8',
-        'publishedAt': datetime.now().isoformat(),
-        'viewsCount': 1000,
-        'likesCount': 50,
-        'duration': 120,
-        'explicitnessRating': 'FULLY_EXPLICIT',
-        'hashtags': ['test', 'phase2', 'validation']
-    }
+            # Load metadata caches
+            await self.metadata_handler.load_processed_posts_cache()
 
-    validation_result = validator.validate_video_post(valid_video_data)
-    if validation_result:
-        logger.info("  ✅ Valid video data validation passed")
-    else:
-        logger.error("  ❌ Valid video data validation failed")
+            self.is_running = True
+            self.logger.info("✅ FikFap Scraper started successfully")
 
-    # Test invalid video data
-    invalid_video_data = {
-        'postId': -1,  # Invalid negative ID
-        'label': '',   # Empty label
-        # Missing required fields
-    }
+        except Exception as e:
+            self.logger.error(f"❌ Error starting scraper: {e}")
+            raise
 
-    invalid_result = validator.validate_video_post(invalid_video_data)
-    if not invalid_result:
-        logger.info("  ✅ Invalid video data correctly rejected")
-    else:
-        logger.error("  ❌ Invalid video data incorrectly accepted")
+    async def stop(self):
+        """Stop all scraper components"""
+        try:
+            self.logger.info("🛑 Stopping FikFap Scraper...")
 
-    # Test M3U8 validation
-    valid_m3u8 = """#EXTM3U
-#EXT-X-VERSION:3
-#EXT-X-STREAM-INF:BANDWIDTH=1280000,RESOLUTION=854x480
-playlist_480p.m3u8
-#EXT-X-STREAM-INF:BANDWIDTH=2560000,RESOLUTION=1280x720
-playlist_720p.m3u8"""
+            self.is_running = False
 
-    m3u8_result = validator.validate_m3u8_content(valid_m3u8)
-    if m3u8_result:
-        logger.info("  ✅ M3U8 content validation passed")
-    else:
-        logger.error("  ❌ M3U8 content validation failed")
+            # Stop components
+            if self.scraper:
+                await self.scraper.close_session()
 
-async def test_video_extraction(scraper, logger):
-    """Test video data extraction with mock data"""
-    logger.info("📊 Testing video data extraction...")
+            # Save metadata
+            await self.metadata_handler.save_processed_posts_cache()
 
-    if not scraper.extractor:
-        logger.error("  ❌ Data extractor not available")
-        return
+            self.logger.info("✅ FikFap Scraper stopped successfully")
 
-    # Mock API response for testing
-    mock_video_response = {
-        'video': {
-            'postId': 12345,
-            'mediaId': 'media-test-123',
-            'bunnyVideoId': 'bunny-test-123',
-            'userId': 'user-test-123',
-            'label': 'Phase 2 Test Video - Data Extraction Demo',
-            'description': 'This is a test video to demonstrate Phase 2 data extraction capabilities including comprehensive metadata processing and validation.',
-            'videoStreamUrl': 'https://api.fikfap.com/test/video.m3u8',
-            'thumbnailUrl': 'https://api.fikfap.com/test/thumbnail.jpg',
-            'duration': 180,
-            'viewsCount': 5000,
-            'likesCount': 250,
-            'score': 85,
-            'explicitnessRating': 'FULLY_EXPLICIT',
-            'publishedAt': datetime.now().isoformat(),
-            'isBunnyVideoReady': True,
-            'hashtags': ['phase2', 'test', 'extraction', 'demo'],
-            'author': {
-                'userId': 'user-test-123',
-                'username': 'test_creator_phase2',
-                'displayName': 'Phase 2 Test Creator',
-                'isVerified': True,
-                'isPartner': False,
-                'isPremium': True,
-                'description': 'Test creator for Phase 2 development',
-                'thumbnailUrl': 'https://api.fikfap.com/test/creator.jpg',
-                'followerCount': 10000,
-                'followingCount': 500,
-                'postCount': 150,
-                'profileLinks': [
-                    {
-                        'platform': 'twitter',
-                        'url': 'https://twitter.com/testcreator',
-                        'verified': True
+        except Exception as e:
+            self.logger.error(f"Error stopping scraper: {e}")
+
+    async def _perform_health_checks(self):
+        """Perform system health checks before starting"""
+        self.logger.info("🏥 Performing system health checks...")
+
+        # Check system health
+        is_healthy, issues = self.system_monitor.check_system_health()
+
+        if not is_healthy:
+            self.logger.warning("⚠️  System health issues detected:")
+            for issue in issues:
+                self.logger.warning(f"   - {issue}")
+
+            # Get recommendations
+            recommendations = self.system_monitor.get_storage_recommendations()
+            if recommendations:
+                self.logger.info("💡 Recommendations:")
+                for rec in recommendations[:3]:  # Show top 3
+                    self.logger.info(f"   - {rec}")
+        else:
+            self.logger.info("✅ System health check passed")
+
+        # Check disk space
+        disk_summary = self.system_monitor.disk_monitor.get_usage_summary()
+        if disk_summary['critical_paths']:
+            raise Exception("❌ Critical disk space issue - cannot start scraper")
+
+    async def process_video_with_storage(self, post_id: int) -> bool:
+        """
+        Process a single video through complete pipeline with Phase 4 storage
+
+        Args:
+            post_id: Post ID to process
+
+        Returns:
+            True if processing succeeded, False otherwise
+        """
+        try:
+            self.logger.info(f"📹 Processing video with storage: {post_id}")
+
+            # Check if already processed
+            if await self.metadata_handler.is_post_processed(post_id):
+                self.logger.info(f"⏭️  Video {post_id} already processed, skipping")
+                return True
+
+            # Get video information using existing scraper
+            try:
+                # This would normally call the scraper's actual method
+                self.logger.info(f"📊 Extracting video data for post {post_id}...")
+
+                # For now, we'll demonstrate with a mock video post
+                # In real usage, this would be: video_post = await self.scraper.get_video_post(post_id)
+                mock_video_post = self._create_mock_video_post(post_id)
+
+                if not mock_video_post:
+                    self.logger.error(f"❌ Could not get video info for post {post_id}")
+                    return False
+
+                video_post = mock_video_post
+
+            except Exception as e:
+                self.logger.error(f"❌ Error extracting video data: {e}")
+                return False
+
+            # Create processing record
+            processing_record = await self.metadata_handler.create_processing_record(video_post)
+
+            # Update status to processing
+            await self.metadata_handler.update_processing_record(
+                post_id, 
+                ProcessingStatus.PROCESSING
+            )
+
+            # Create directory structure
+            directory_structure = await self.file_manager.create_directory_structure(video_post)
+            self.logger.info(f"📁 Created directory structure at: {directory_structure.postPath}")
+
+            # Simulate downloading and storage (Phase 3 integration point)
+            try:
+                # This is where Phase 3 M3U8 downloader would be called
+                self.logger.info(f"📥 Simulating video download for qualities: {len(video_post.availableQualities)}")
+
+                stored_files = []
+                successful_downloads = 0
+
+                # Simulate processing each quality
+                for quality in video_post.availableQualities:
+                    try:
+                        # Generate filename
+                        filename = self.file_manager.generate_filename(
+                            video_post, 
+                            quality.resolution, 
+                            quality.codec.value
+                        )
+
+                        # Get target path
+                        quality_dir = Path(directory_structure.qualityPaths[quality.resolution])
+                        target_path = quality_dir / filename
+
+                        # Simulate creating a small file (in real usage, this would be the downloaded video)
+                        temp_content = f"Mock video content for {quality.resolution} - Post {post_id}".encode()
+                        temp_file = target_path.parent / f"temp_{filename}"
+
+                        # Create temp file
+                        temp_file.parent.mkdir(parents=True, exist_ok=True)
+                        with open(temp_file, 'wb') as f:
+                            f.write(temp_content * 100)  # Make it a bit larger
+
+                        # Store file with metadata using Phase 4 file manager
+                        storage_metadata = await self.file_manager.store_video_file(
+                            temp_file,
+                            target_path,
+                            video_post,
+                            quality.resolution,
+                            quality.codec.value,
+                            move_file=True
+                        )
+
+                        # Save metadata
+                        await self.metadata_handler.save_video_metadata(
+                            storage_metadata,
+                            directory_structure
+                        )
+
+                        stored_files.append(str(target_path))
+                        successful_downloads += 1
+
+                        self.logger.info(f"✅ Stored: {filename} ({quality.resolution})")
+
+                    except Exception as e:
+                        self.logger.error(f"❌ Error storing {quality.resolution}: {e}")
+
+                # Update processing record
+                if successful_downloads > 0:
+                    await self.metadata_handler.update_processing_record(
+                        post_id,
+                        ProcessingStatus.COMPLETED,
+                        stored_files=stored_files
+                    )
+
+                    self.logger.info(f"✅ Successfully processed video {post_id}: "
+                                   f"{successful_downloads} qualities stored")
+                    return True
+                else:
+                    await self.metadata_handler.update_processing_record(
+                        post_id,
+                        ProcessingStatus.FAILED,
+                        error_message="No successful downloads"
+                    )
+
+                    self.logger.error(f"❌ Failed to process video {post_id}: no successful downloads")
+                    return False
+
+            except Exception as e:
+                await self.metadata_handler.update_processing_record(
+                    post_id,
+                    ProcessingStatus.FAILED,
+                    error_message=str(e)
+                )
+                raise e
+
+        except Exception as e:
+            self.logger.error(f"❌ Error processing video {post_id}: {e}")
+
+            # Update processing record with error
+            try:
+                await self.metadata_handler.update_processing_record(
+                    post_id,
+                    ProcessingStatus.FAILED,
+                    error_message=str(e)
+                )
+            except Exception:
+                pass  # Don't fail on metadata update error
+
+            return False
+
+    def _create_mock_video_post(self, post_id: int) -> VideoPost:
+        """Create a mock video post for demonstration (replace with real scraper call)"""
+        from data.models import Author, VideoQuality, VideoCodec
+
+        mock_author = Author(
+            userId=f"user_{post_id}",
+            username=f"creator_{post_id}"
+        )
+
+        mock_qualities = [
+            VideoQuality(
+                resolution="720p",
+                codec=VideoCodec.H264,
+                playlist_url=f"https://api.fikfap.com/video/{post_id}/720p.m3u8"
+            ),
+            VideoQuality(
+                resolution="1080p", 
+                codec=VideoCodec.H264,
+                playlist_url=f"https://api.fikfap.com/video/{post_id}/1080p.m3u8"
+            )
+        ]
+
+        mock_video_post = VideoPost(
+            postId=post_id,
+            mediaId=f"media_{post_id}",
+            bunnyVideoId=f"bunny_{post_id}",
+            userId=f"user_{post_id}",
+            label=f"Phase 4 Demo Video - Post {post_id}",
+            videoStreamUrl=f"https://api.fikfap.com/video/{post_id}/master.m3u8",
+            publishedAt=datetime.now(),
+            author=mock_author,
+            availableQualities=mock_qualities
+        )
+
+        return mock_video_post
+
+    async def process_multiple_videos(self, post_ids: List[int]) -> Dict[str, Any]:
+        """Process multiple videos"""
+        results = {
+            'processed': 0,
+            'skipped': 0,
+            'failed': 0,
+            'total': len(post_ids)
+        }
+
+        self.logger.info(f"📥 Processing {len(post_ids)} videos...")
+
+        for post_id in post_ids:
+            success = await self.process_video_with_storage(post_id)
+
+            if success:
+                # Check if it was actually processed or skipped
+                if await self.metadata_handler.is_post_processed(post_id):
+                    if post_id in [record.postId for record in self.metadata_handler.processing_records_cache.values() 
+                                  if record.status == ProcessingStatus.COMPLETED]:
+                        results['processed'] += 1
+                    else:
+                        results['skipped'] += 1
+            else:
+                results['failed'] += 1
+
+        self.logger.info(f"📊 Processing complete - "
+                       f"Processed: {results['processed']}, "
+                       f"Skipped: {results['skipped']}, "
+                       f"Failed: {results['failed']}")
+
+        return results
+
+    async def cleanup_storage(self) -> Dict[str, Any]:
+        """Perform storage cleanup operations"""
+        self.logger.info("🧹 Starting storage cleanup...")
+
+        cleanup_results = {
+            'incomplete_downloads': await self.file_manager.cleanup_incomplete_downloads(),
+            'old_records': await self.metadata_handler.cleanup_old_records(30),
+            'storage_stats': self.file_manager.get_storage_stats()
+        }
+
+        self.logger.info("✅ Storage cleanup completed")
+        return cleanup_results
+
+    async def get_system_report(self) -> Dict[str, Any]:
+        """Get comprehensive system report"""
+        try:
+            return {
+                'scraper_status': {
+                    'is_running': self.is_running,
+                    'components': {
+                        'scraper': self.scraper is not None,
+                        'file_manager': True,
+                        'metadata_handler': True,
+                        'system_monitor': True
                     }
-                ]
+                },
+                'system_status': self.system_monitor.get_system_status().dict(),
+                'processing_stats': await self.metadata_handler.get_processing_statistics(),
+                'storage_stats': self.file_manager.get_storage_stats(),
+                'disk_usage': self.system_monitor.disk_monitor.get_usage_summary(),
+                'health_check': {
+                    'is_healthy': self.system_monitor.check_system_health()[0],
+                    'issues': self.system_monitor.check_system_health()[1]
+                },
+                'recommendations': self.system_monitor.get_storage_recommendations(),
+                'generated_at': datetime.now().isoformat()
             }
-        }
-    }
 
-    try:
-        # Test extraction from dictionary
-        video_post = await scraper.extractor._extract_from_dict(mock_video_response)
+        except Exception as e:
+            return {'error': f"Error generating system report: {e}"}
 
-        if video_post and isinstance(video_post, VideoPost):
-            logger.info(f"  ✅ Successfully extracted video: '{video_post.label}'")
-            logger.info(f"     Post ID: {video_post.postId}")
-            logger.info(f"     Author: {video_post.author.username if video_post.author else 'Unknown'}")
-            logger.info(f"     Duration: {video_post.duration}s")
-            logger.info(f"     Views: {video_post.viewsCount:,}")
-            logger.info(f"     Hashtags: {', '.join(video_post.hashtags)}")
-
-            # Test video validation
-            is_valid = scraper.is_valid_video(video_post)
-            if is_valid:
-                logger.info("  ✅ Extracted video passed validation")
-            else:
-                logger.warning("  ⚠️  Extracted video failed validation")
-
-            # Test download summary
-            summary = scraper.get_download_summary(video_post)
-            logger.info("  📋 Download Summary:")
-            logger.info(f"     Title: {summary['title']}")
-            logger.info(f"     Author: {summary['author']}")
-            logger.info(f"     Duration: {summary['duration']}s")
-            logger.info(f"     Rating: {summary['rating']}")
-            logger.info(f"     Total Qualities: {summary['total_qualities']}")
-            logger.info(f"     Has VP9: {summary['has_vp9']}")
-
-        else:
-            logger.error("  ❌ Video extraction failed")
-
-    except Exception as e:
-        logger.error(f"  ❌ Video extraction error: {e}")
-
-async def test_m3u8_processing(scraper, logger):
-    """Test M3U8 playlist processing"""
-    logger.info("🎵 Testing M3U8 playlist processing...")
-
-    if not scraper.extractor:
-        logger.error("  ❌ Data extractor not available")
-        return
-
-    # Mock master playlist content
-    mock_master_playlist = """#EXTM3U
-#EXT-X-VERSION:3
-#EXT-X-STREAM-INF:BANDWIDTH=1280000,RESOLUTION=854x480,CODECS="avc1.42001e"
-playlists/480p.m3u8
-#EXT-X-STREAM-INF:BANDWIDTH=2560000,RESOLUTION=1280x720,CODECS="avc1.42001f"
-playlists/720p.m3u8
-#EXT-X-STREAM-INF:BANDWIDTH=5000000,RESOLUTION=1920x1080,CODECS="avc1.42001f"
-playlists/1080p.m3u8
-#EXT-X-STREAM-INF:BANDWIDTH=3000000,RESOLUTION=1280x720,CODECS="vp09.00.30.08"
-playlists/vp9_720p.m3u8"""
-
-    try:
-        # Test playlist parsing
-        base_url = 'https://api.fikfap.com/test/master.m3u8'
-        playlist_urls = await scraper.extractor.parse_master_playlist(mock_master_playlist, base_url)
-
-        if playlist_urls:
-            logger.info(f"  ✅ Parsed {len(playlist_urls)} playlist URLs:")
-            for i, url in enumerate(playlist_urls, 1):
-                logger.info(f"     {i}. {url}")
-
-            # Test VP9 detection
-            vp9_urls = [url for url in playlist_urls if 'vp9' in url.lower()]
-            h264_urls = [url for url in playlist_urls if 'vp9' not in url.lower()]
-
-            logger.info(f"  📊 Quality breakdown:")
-            logger.info(f"     H.264/AVC1 streams: {len(h264_urls)}")
-            logger.info(f"     VP9 streams: {len(vp9_urls)}")
-
-            # Test VP9 filtering
-            if config.exclude_vp9:
-                filtered_urls = scraper.extractor._manual_playlist_parsing(mock_master_playlist, base_url)
-                logger.info(f"  🔽 VP9 exclusion enabled - filtered to {len(filtered_urls)} URLs")
-            else:
-                logger.info("  ✅ VP9 streams included (exclusion disabled)")
-        else:
-            logger.error("  ❌ Playlist parsing failed")
-
-    except Exception as e:
-        logger.error(f"  ❌ M3U8 processing error: {e}")
-
-async def test_quality_filtering(scraper, logger):
-    """Test quality filtering capabilities"""
-    logger.info("🎯 Testing quality filtering...")
-
-    # Mock quality data
-    mock_qualities = [
-        {
-            'resolution': '240p',
-            'codec': 'h264',
-            'bandwidth': 500000,
-            'is_vp9': False,
-            'fps': 30
-        },
-        {
-            'resolution': '480p',
-            'codec': 'h264',
-            'bandwidth': 1280000,
-            'is_vp9': False,
-            'fps': 30
-        },
-        {
-            'resolution': '720p',
-            'codec': 'h264',
-            'bandwidth': 2560000,
-            'is_vp9': False,
-            'fps': 30
-        },
-        {
-            'resolution': '720p',
-            'codec': 'vp9',
-            'bandwidth': 1800000,
-            'is_vp9': True,
-            'fps': 30
-        },
-        {
-            'resolution': '1080p',
-            'codec': 'h264',
-            'bandwidth': 5000000,
-            'is_vp9': False,
-            'fps': 30
-        },
-        {
-            'resolution': '1080p',
-            'codec': 'vp9',
-            'bandwidth': 3500000,
-            'is_vp9': True,
-            'fps': 30
-        }
-    ]
-
-    logger.info(f"  📊 Testing with {len(mock_qualities)} quality options")
-
-    # Test VP9 filtering
-    h264_only = scraper.filter_qualities_by_codec(mock_qualities, exclude_vp9=True)
-    all_codecs = scraper.filter_qualities_by_codec(mock_qualities, exclude_vp9=False)
-
-    logger.info(f"  🔽 H.264 only filtering: {len(h264_only)} qualities")
-    logger.info(f"  ✅ All codecs included: {len(all_codecs)} qualities")
-
-    # Test preferred quality selection
-    preferred = scraper.get_preferred_quality(h264_only)
-    if preferred:
-        logger.info(f"  🎯 Preferred quality: {preferred['resolution']} ({preferred['codec']})")
-        logger.info(f"     Bandwidth: {preferred['bandwidth']:,} bps")
-    else:
-        logger.error("  ❌ No preferred quality found")
-
-    # Test quality ranking
-    sorted_by_bandwidth = sorted(mock_qualities, key=lambda q: q['bandwidth'], reverse=True)
-    logger.info("  📈 Qualities by bandwidth (highest first):")
-    for i, quality in enumerate(sorted_by_bandwidth[:3], 1):
-        codec_info = f"VP9" if quality['is_vp9'] else quality['codec'].upper()
-        logger.info(f"     {i}. {quality['resolution']} ({codec_info}) - {quality['bandwidth']:,} bps")
 
 async def main():
-    """Main application entry point for Phase 2"""
+    """Main entry point for Phase 4 demonstration"""
     try:
+        logger = setup_logger("fikfap_main", config.log_level, config.log_file)
+
+        logger.info("🎬 FikFap API Scraper - Phase 4: Storage & File Management")
+        logger.info("=" * 80)
+
         # Create necessary directories
         config.create_directories()
 
-        # Run comprehensive data extraction tests
-        await test_data_extraction()
+        async with FikFapScraperPhase4() as scraper:
+            # Show system report
+            logger.info("📊 System Report:")
+            report = await scraper.get_system_report()
 
-        print("\n" + "="*60)
-        print("🎉 FikFap Scraper Phase 2 - Data Extraction Complete!")
-        print("✅ All data extraction and validation components working")
-        print("📋 Ready for Phase 3: Download Implementation")
-        print("="*60)
+            # System status
+            system_status = report['system_status']
+            logger.info(f"   💾 Disk Space: {system_status['diskSpaceGb']:.2f}GB free")
+            logger.info(f"   🧠 Memory: {system_status['memoryUsagePercent']:.1f}% used")
+            logger.info(f"   🔧 CPU: {system_status['cpuUsagePercent']:.1f}% used")
+            logger.info(f"   ✅ Health: {'Healthy' if report['health_check']['is_healthy'] else 'Issues detected'}")
 
-    except KeyboardInterrupt:
-        print("\n⏹️  Phase 2 test stopped by user")
-    except ConfigurationError as e:
-        print(f"⚙️  Configuration error: {e}")
-        sys.exit(1)
-    except Exception as e:
-        print(f"❌ Phase 2 test failed: {e}")
-        sys.exit(1)
+            # Processing stats
+            processing_stats = report['processing_stats']
+            logger.info(f"   📋 Processed Posts: {processing_stats['total_processed']}")
+            logger.info(f"   📈 Success Rate: {processing_stats['success_rate']:.1f}%")
 
-def run():
-    """Run the Phase 2 application"""
-    try:
-        if sys.platform == 'win32':
-            asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+            # Recommendations
+            if report['recommendations']:
+                logger.info("💡 Recommendations:")
+                for rec in report['recommendations'][:3]:
+                    logger.info(f"   - {rec}")
 
-        asyncio.run(main())
+            logger.info("=" * 80)
 
-    except KeyboardInterrupt:
-        print("\n⏹️  Scraper stopped by user")
+            # Demo: Process some videos with Phase 4 storage
+            logger.info("🎯 Phase 4 Demo: Processing videos with storage...")
+
+            demo_post_ids = [12345, 12346, 12347]  # Example post IDs
+
+            results = await scraper.process_multiple_videos(demo_post_ids)
+            logger.info(f"📊 Demo Results: {results}")
+
+            # Perform cleanup
+            cleanup_results = await scraper.cleanup_storage()
+            logger.info(f"🧹 Cleanup: {cleanup_results['incomplete_downloads'].filesRemoved} temp files removed")
+
+            # Final storage stats
+            storage_stats = cleanup_results['storage_stats']
+            logger.info(f"📁 Storage: {storage_stats['total_files']} files, "
+                       f"{storage_stats['total_size']:,} bytes total")
+
+            logger.info("=" * 80)
+            logger.info("🎉 Phase 4 Demo Complete!")
+            logger.info("✅ Storage & File Management System fully operational")
+            logger.info("📋 Features demonstrated:")
+            logger.info("   - Directory structure creation (postId/m3u8/quality/)")
+            logger.info("   - File storage with integrity verification")
+            logger.info("   - JSON metadata persistence")
+            logger.info("   - Processing history tracking")
+            logger.info("   - Duplicate prevention")
+            logger.info("   - System health monitoring")
+            logger.info("   - Automated cleanup operations")
+            logger.info("=" * 80)
+
     except Exception as e:
         print(f"❌ Error: {e}")
-        sys.exit(1)
+        return 1
+
+    return 0
+
 
 if __name__ == "__main__":
-    run()
+    exit_code = asyncio.run(main())
+    sys.exit(exit_code)
