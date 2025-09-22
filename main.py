@@ -1,361 +1,366 @@
-#!/usr/bin/env python3
+# fikfap_main.py
 """
-Phase 5: Main Entry Point with Complete Orchestration
-FikFap Scraper - Production-Ready Main Application
+FikFap Main Entry Point - Complete integration with your existing system.
 
-Complete integration of all phases with robust orchestration,
-error handling, and production-ready features.
+This is the main entry point that provides:
+1. Single cycle execution (scrape 5+9 posts and process them)
+2. Continuous loop execution 
+3. System health checks
+4. Demo mode for testing
+
+Usage:
+    python fikfap_main.py --single                    # Run one cycle
+    python fikfap_main.py --continuous                # Run continuously 
+    python fikfap_main.py --continuous --interval 600 # Run every 10 minutes
+    python fikfap_main.py --health-check              # Check system health
+    python fikfap_main.py --demo                      # Run demo
 """
+
 import asyncio
-import sys
-import os
-from pathlib import Path
-from datetime import datetime
 import argparse
+import signal
+import sys
 import json
-from typing import List, Dict, Any, Optional
+from datetime import datetime
+from pathlib import Path
+from typing import Optional, Dict, Any
 
-# Add project root to Python path
-project_root = Path(__file__).parent.absolute()
-sys.path.insert(0, str(project_root))
-os.chdir(project_root)
-
-from orchestrator import FikFapScraperOrchestrator
-from core.config import config
+# Import the workflow components
+from fikfap_workflow_integrator import FikFapWorkflowIntegrator, FikFapContinuousRunner
+from core.config import Config, config
 from core.exceptions import *
 from utils.logger import setup_logger
 
-class FikFapScraperApplication:
-    """
-    Main application class for the FikFap scraper
+
+class FikFapMainApplication:
+    """Main application class for FikFap scraper integration."""
     
-    Provides command-line interface and high-level operations
-    """
-    
-    def __init__(self):
-        """Initialize the application"""
-        self.logger = setup_logger("fikfap_app", config.log_level, config.log_file)
-        self.orchestrator: Optional[FikFapScraperOrchestrator] = None
-    
-    async def run_single_video(self, post_id: int, quality_filter: Optional[List[str]] = None) -> bool:
-        """
-        Process a single video
+    def __init__(self, config_path: Optional[str] = None, log_level: str = "INFO"):
+        # Setup logging
+        self.logger = setup_logger(self.__class__.__name__, level=log_level)
         
-        Args:
-            post_id: Post ID to process
-            quality_filter: Optional quality filter
+        # Load configuration
+        self.config = Config()
+        if config_path and Path(config_path).exists():
+            self.config.load_from_file(config_path)
+        
+        # Components
+        self.workflow_integrator: Optional[FikFapWorkflowIntegrator] = None
+        self.continuous_runner: Optional[FikFapContinuousRunner] = None
+        
+        # State
+        self.shutdown_requested = False
+        
+        # Setup signal handlers for graceful shutdown
+        self._setup_signal_handlers()
+    
+    def _setup_signal_handlers(self):
+        """Setup signal handlers for graceful shutdown."""
+        def signal_handler(signum, frame):
+            self.logger.info(f"Received signal {signum}, requesting shutdown")
+            self.shutdown_requested = True
             
-        Returns:
-            True if successful, False otherwise
-        """
+            if self.continuous_runner:
+                self.continuous_runner.request_stop()
+        
+        signal.signal(signal.SIGINT, signal_handler)
+        signal.signal(signal.SIGTERM, signal_handler)
+    
+    async def run_single_cycle(self) -> Dict[str, Any]:
+        """Run a single scraping and processing cycle."""
         try:
-            self.logger.info(f"Processing single video: {post_id}")
+            self.logger.info("Starting single cycle execution")
             
-            async with FikFapScraperOrchestrator() as orchestrator:
-                result = await orchestrator.process_video_workflow(
-                    post_id=post_id,
-                    quality_filter=quality_filter
-                )
+            # Initialize workflow integrator
+            async with FikFapWorkflowIntegrator() as integrator:
+                self.workflow_integrator = integrator
                 
-                if result['success']:
-                    self.logger.info(f"✅ Successfully processed video {post_id}")
-                    self.logger.info(f"   Duration: {result['duration']:.2f}s")
-                    self.logger.info(f"   Files created: {result['stats']['files_created']}")
-                    self.logger.info(f"   Total size: {result['stats']['total_size_bytes']:,} bytes")
-                    return True
+                # Run single cycle
+                result = await integrator.run_single_cycle()
+                
+                # Log results
+                if result.get("success", False):
+                    self.logger.info(
+                        f"Single cycle completed successfully:\n"
+                        f"  Posts scraped: {result.get('posts_scraped', 0)}\n"
+                        f"  Posts processed: {result.get('posts_processed', 0)}\n"
+                        f"  Posts failed: {result.get('posts_failed', 0)}\n"
+                        f"  Duration: {result.get('cycle_duration', 0):.2f}s"
+                    )
                 else:
-                    self.logger.error(f"❌ Failed to process video {post_id}: {result.get('error', 'Unknown error')}")
-                    return False
-                    
-        except Exception as e:
-            self.logger.error(f"❌ Application error processing video {post_id}: {e}")
-            return False
-    
-    async def run_batch_processing(
-        self, 
-        post_ids: List[int], 
-        max_concurrent: Optional[int] = None,
-        quality_filter: Optional[List[str]] = None
-    ) -> Dict[str, Any]:
-        """
-        Process multiple videos in batch
-        
-        Args:
-            post_ids: List of post IDs to process
-            max_concurrent: Maximum concurrent processing
-            quality_filter: Optional quality filter
-            
-        Returns:
-            Batch processing results
-        """
-        try:
-            self.logger.info(f"Starting batch processing of {len(post_ids)} videos")
-            
-            async with FikFapScraperOrchestrator() as orchestrator:
-                result = await orchestrator.process_multiple_videos(
-                    post_ids=post_ids,
-                    max_concurrent=max_concurrent,
-                    quality_filter=quality_filter
-                )
-                
-                summary = result['summary']
-                self.logger.info("📊 Batch Processing Results:")
-                self.logger.info(f"   Total: {summary['total']}")
-                self.logger.info(f"   Successful: {summary['successful']}")
-                self.logger.info(f"   Failed: {summary['failed']}")
-                self.logger.info(f"   Skipped: {summary['skipped']}")
-                self.logger.info(f"   Duration: {summary['duration']:.2f}s")
-                self.logger.info(f"   Rate: {summary['videos_per_second']:.2f} videos/second")
+                    self.logger.error(f"Single cycle failed: {result.get('error', 'Unknown error')}")
                 
                 return result
                 
         except Exception as e:
-            self.logger.error(f"❌ Batch processing error: {e}")
-            return {'success': False, 'error': str(e)}
+            self.logger.error(f"Single cycle execution failed: {e}")
+            return {"success": False, "error": str(e)}
     
-    async def run_system_check(self) -> Dict[str, Any]:
-        """
-        Perform system health check and show status
-        
-        Returns:
-            System status information
-        """
+    async def run_continuous_loop(self, interval: int = 300) -> None:
+        """Run continuous scraping and processing loop."""
         try:
-            self.logger.info("🏥 Performing system health check...")
+            self.logger.info(f"Starting continuous execution (interval: {interval}s)")
             
-            # Initialize orchestrator for health checks
-            orchestrator = FikFapScraperOrchestrator()
+            # Initialize workflow integrator
+            async with FikFapWorkflowIntegrator() as integrator:
+                self.workflow_integrator = integrator
+                
+                # Create continuous runner
+                config_override = {"continuous.loop_interval": interval}
+                self.continuous_runner = FikFapContinuousRunner(integrator, config_override)
+                
+                # Start continuous loop
+                await self.continuous_runner.run_continuous_loop()
+                
+        except KeyboardInterrupt:
+            self.logger.info("Received keyboard interrupt")
+        except Exception as e:
+            self.logger.error(f"Continuous loop execution failed: {e}")
+            raise
+    
+    async def run_health_check(self) -> Dict[str, Any]:
+        """Run comprehensive system health check."""
+        try:
+            self.logger.info("Running system health check")
             
-            # Perform startup health checks
-            await orchestrator._perform_startup_health_checks()
+            health_results = {
+                "config_status": {"healthy": True, "details": "Configuration loaded successfully"},
+                "storage_status": {"healthy": False, "details": ""},
+                "component_status": {"healthy": False, "details": ""},
+                "overall_status": {"healthy": False}
+            }
             
-            # Get system status
-            status = orchestrator.get_system_status()
+            # Check storage directories
+            try:
+                downloads_dir = Path(self.config.get('storage.downloads_dir', './downloads'))
+                downloads_dir.mkdir(parents=True, exist_ok=True)
+                
+                # Test write permissions
+                test_file = downloads_dir / "health_check_test.txt"
+                test_file.write_text("health check test")
+                test_file.unlink()
+                
+                health_results["storage_status"] = {
+                    "healthy": True,
+                    "details": f"Storage directory accessible: {downloads_dir}"
+                }
+            except Exception as e:
+                health_results["storage_status"] = {
+                    "healthy": False,
+                    "details": f"Storage directory error: {e}"
+                }
             
-            self.logger.info("✅ System Health Report:")
-            self.logger.info(f"   System Status: {'Healthy' if status['system'].get('is_healthy', True) else 'Issues Detected'}")
-            self.logger.info(f"   Disk Space: {status['system'].get('diskSpaceGb', 0):.2f}GB free")
-            self.logger.info(f"   Memory Usage: {status['system'].get('memoryUsagePercent', 0):.1f}%")
-            self.logger.info(f"   CPU Usage: {status['system'].get('cpuUsagePercent', 0):.1f}%")
+            # Check component initialization
+            try:
+                async with FikFapWorkflowIntegrator() as integrator:
+                    component_health = await integrator.run_health_check()
+                    health_results["component_status"] = {
+                        "healthy": component_health.get("overall_health", False),
+                        "details": component_health
+                    }
+            except Exception as e:
+                health_results["component_status"] = {
+                    "healthy": False,
+                    "details": f"Component initialization failed: {e}"
+                }
             
-            components = status['components']
-            self.logger.info("🔧 Components Status:")
-            for component, available in components.items():
-                status_icon = "✅" if available else "❌"
-                self.logger.info(f"   {status_icon} {component}")
+            # Determine overall health
+            health_results["overall_status"]["healthy"] = all(
+                result["healthy"] for result in [
+                    health_results["config_status"],
+                    health_results["storage_status"],
+                    health_results["component_status"]
+                ]
+            )
             
-            return status
+            # Log results
+            if health_results["overall_status"]["healthy"]:
+                self.logger.info("✓ System health check passed - all components healthy")
+            else:
+                self.logger.warning("✗ System health check failed - see details below")
+                
+                # Log specific issues
+                for check_name, result in health_results.items():
+                    if not result.get("healthy", True):
+                        self.logger.error(f"  {check_name}: {result.get('details', 'Unknown error')}")
+            
+            return health_results
             
         except Exception as e:
-            self.logger.error(f"❌ System check error: {e}")
-            return {'error': str(e)}
+            self.logger.error(f"Health check failed: {e}")
+            return {
+                "overall_status": {"healthy": False},
+                "error": str(e)
+            }
     
-    async def run_interactive_mode(self):
-        """Run interactive mode for testing and development"""
-        self.logger.info("🎮 Starting interactive mode...")
-        
-        print("FikFap Scraper - Interactive Mode")
-        print("=" * 40)
-        print("Commands:")
-        print("  video <post_id>     - Process single video")
-        print("  batch <ids...>      - Process multiple videos")
-        print("  status             - Show system status") 
-        print("  stats              - Show processing statistics")
-        print("  help               - Show this help")
-        print("  exit               - Exit interactive mode")
-        print()
-        
+    async def run_demo(self) -> None:
+        """Run a demonstration of the complete workflow."""
         try:
-            async with FikFapScraperOrchestrator() as orchestrator:
-                while True:
-                    try:
-                        command = input("fikfap> ").strip()
-                        
-                        if not command:
-                            continue
-                        
-                        parts = command.split()
-                        cmd = parts[0].lower()
-                        
-                        if cmd == 'exit':
-                            break
-                        elif cmd == 'help':
-                            print("Available commands: video, batch, status, stats, help, exit")
-                        elif cmd == 'video' and len(parts) >= 2:
-                            try:
-                                post_id = int(parts[1])
-                                result = await orchestrator.process_video_workflow(post_id)
-                                print(f"Result: {result['success']}")
-                                if result['success']:
-                                    print(f"Duration: {result['duration']:.2f}s")
-                            except ValueError:
-                                print("Error: Invalid post ID")
-                        elif cmd == 'batch' and len(parts) >= 2:
-                            try:
-                                post_ids = [int(x) for x in parts[1:]]
-                                result = await orchestrator.process_multiple_videos(post_ids)
-                                print(f"Batch result: {result['summary']}")
-                            except ValueError:
-                                print("Error: Invalid post IDs")
-                        elif cmd == 'status':
-                            status = orchestrator.get_system_status()
-                            print(json.dumps(status, indent=2, default=str))
-                        elif cmd == 'stats':
-                            stats = orchestrator.stats
-                            print(f"Processing Statistics:")
-                            print(f"  Videos Processed: {stats['videos_processed']}")
-                            print(f"  Videos Failed: {stats['videos_failed']}")
-                            print(f"  Videos Skipped: {stats['videos_skipped']}")
-                            print(f"  Total Bytes: {stats['total_bytes_downloaded']:,}")
-                        else:
-                            print("Unknown command. Type 'help' for available commands.")
+            self.logger.info("🚀 Starting FikFap Integration Demo")
+            
+            # Step 1: Health check
+            self.logger.info("📊 Step 1: Running system health check...")
+            health_results = await self.run_health_check()
+            
+            if not health_results.get("overall_status", {}).get("healthy", False):
+                self.logger.error("❌ System health check failed - cannot continue demo")
+                return
+            
+            self.logger.info("✅ Step 1 completed: System health check passed")
+            
+            # Step 2: Single cycle demonstration
+            self.logger.info("🔄 Step 2: Running demonstration cycle...")
+            cycle_result = await self.run_single_cycle()
+            
+            if cycle_result.get("success", False):
+                posts_scraped = cycle_result.get("posts_scraped", 0)
+                posts_processed = cycle_result.get("posts_processed", 0)
+                duration = cycle_result.get("cycle_duration", 0)
+                
+                self.logger.info(
+                    f"✅ Step 2 completed: Demonstration cycle successful!\n"
+                    f"  📥 Posts scraped from API: {posts_scraped}\n"
+                    f"  ⚡ Posts processed: {posts_processed}\n"
+                    f"  ⏱️  Duration: {duration:.2f} seconds"
+                )
+                
+                # Show some processing details
+                if cycle_result.get("processing_records"):
+                    self.logger.info("📋 Processing Details:")
+                    for record in cycle_result["processing_records"][:3]:  # Show first 3
+                        post_id = record.get("post_id", "unknown")
+                        status = record.get("status", "unknown")
+                        self.logger.info(f"  Post {post_id}: {status}")
                     
-                    except KeyboardInterrupt:
-                        break
-                    except Exception as e:
-                        print(f"Error: {e}")
-                        
+                    if len(cycle_result["processing_records"]) > 3:
+                        remaining = len(cycle_result["processing_records"]) - 3
+                        self.logger.info(f"  ... and {remaining} more posts")
+                
+            else:
+                error = cycle_result.get("error", "Unknown error")
+                self.logger.error(f"❌ Step 2 failed: {error}")
+                return
+            
+            # Step 3: Demo completed
+            self.logger.info("🎉 Step 3: Demo completed successfully!")
+            self.logger.info(
+                "🔧 The system is ready for production use:\n"
+                "  • Use --single for one-time runs\n"
+                "  • Use --continuous for automated looping\n"
+                "  • Use --health-check for system monitoring"
+            )
+            
         except Exception as e:
-            self.logger.error(f"Interactive mode error: {e}")
-        
-        print("Exiting interactive mode...")
+            self.logger.error(f"❌ Demo failed: {e}")
+
+
+def create_sample_config(config_path: str):
+    """Create a sample configuration file."""
+    sample_config = {
+        "scraper": {
+            "headless": True,
+            "slow_mo": 0,
+            "timeout": 30000,
+            "max_retries": 3
+        },
+        "processing": {
+            "max_concurrent": 2,
+            "quality_filter": None
+        },
+        "storage": {
+            "downloads_dir": "./downloads",
+            "create_subdirs": True
+        },
+        "continuous": {
+            "loop_interval": 300,
+            "max_consecutive_failures": 5,
+            "recovery_delay": 60
+        },
+        "logging": {
+            "level": "INFO",
+            "file": "logs/fikfap_scraper.log"
+        }
+    }
     
-    def setup_argument_parser(self) -> argparse.ArgumentParser:
-        """Set up command line argument parser"""
-        parser = argparse.ArgumentParser(
-            description="FikFap Scraper - Complete Video Processing System"
-        )
-        
-        # Main command
-        subparsers = parser.add_subparsers(dest='command', help='Available commands')
-        
-        # Single video processing
-        video_parser = subparsers.add_parser('video', help='Process a single video')
-        video_parser.add_argument('post_id', type=int, help='Post ID to process')
-        video_parser.add_argument('--quality', nargs='+', help='Quality filter (e.g. 1080p 720p)')
-        
-        # Batch processing
-        batch_parser = subparsers.add_parser('batch', help='Process multiple videos')
-        batch_parser.add_argument('post_ids', type=int, nargs='+', help='Post IDs to process')
-        batch_parser.add_argument('--max-concurrent', type=int, help='Maximum concurrent downloads')
-        batch_parser.add_argument('--quality', nargs='+', help='Quality filter (e.g. 1080p 720p)')
-        
-        # System operations
-        subparsers.add_parser('check', help='Perform system health check')
-        subparsers.add_parser('interactive', help='Start interactive mode')
-        
-        # Configuration
-        parser.add_argument('--config', help='Configuration file path')
-        parser.add_argument('--log-level', choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'], 
-                          help='Logging level')
-        
-        return parser
+    # Create config directory if needed
+    config_file = Path(config_path)
+    config_file.parent.mkdir(parents=True, exist_ok=True)
+    
+    # Write config
+    with open(config_file, 'w') as f:
+        json.dump(sample_config, f, indent=2)
+    
+    print(f"Sample configuration created: {config_path}")
+
 
 async def main():
-    """Main entry point"""
-    app = FikFapScraperApplication()
+    """Main entry point with argument parsing."""
+    parser = argparse.ArgumentParser(
+        description="FikFap Complete Scraping and Processing System",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  %(prog)s --demo                          # Run demonstration
+  %(prog)s --single                        # Run single cycle (scrape 5+9 posts)
+  %(prog)s --continuous                    # Run continuously (5min intervals)
+  %(prog)s --continuous --interval 600     # Run continuously (10min intervals)
+  %(prog)s --health-check                  # Run system health check
+  %(prog)s --create-config config.json     # Create sample configuration
+        """
+    )
+    
+    # Main operation modes
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument('--demo', action='store_true', help='Run demonstration workflow')
+    group.add_argument('--single', action='store_true', help='Run single cycle (5+9 posts)')
+    group.add_argument('--continuous', action='store_true', help='Run continuous processing loop')
+    group.add_argument('--health-check', action='store_true', help='Run system health check')
+    group.add_argument('--create-config', type=str, metavar='PATH', help='Create sample config file')
+    
+    # Configuration options
+    parser.add_argument('--config', type=str, help='Path to configuration file')
+    parser.add_argument('--interval', type=int, default=300, help='Loop interval in seconds (default: 300)')
+    parser.add_argument('--log-level', choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'], default='INFO', help='Logging level')
+    parser.add_argument('--verbose', '-v', action='store_true', help='Enable verbose logging')
+    
+    args = parser.parse_args()
+    
+    # Handle config creation
+    if args.create_config:
+        create_sample_config(args.create_config)
+        return
+    
+    # Setup logging level
+    log_level = 'DEBUG' if args.verbose else args.log_level
+    
+    # Create main application
+    app = FikFapMainApplication(config_path=args.config, log_level=log_level)
     
     try:
-        # Parse command line arguments
-        parser = app.setup_argument_parser()
-        args = parser.parse_args()
-        
-        # Apply configuration overrides
-        config_override = {}
-        if args.log_level:
-            config_override['log_level'] = args.log_level
-        
-        # Execute command
-        if args.command == 'video':
-            success = await app.run_single_video(
-                post_id=args.post_id,
-                quality_filter=args.quality
-            )
-            return 0 if success else 1
-            
-        elif args.command == 'batch':
-            result = await app.run_batch_processing(
-                post_ids=args.post_ids,
-                max_concurrent=args.max_concurrent,
-                quality_filter=args.quality
-            )
-            return 0 if result.get('success', False) else 1
-            
-        elif args.command == 'check':
-            status = await app.run_system_check()
-            return 0 if 'error' not in status else 1
-            
-        elif args.command == 'interactive':
-            await app.run_interactive_mode()
-            return 0
-            
-        else:
-            # No command specified, show help and run default demo
-            parser.print_help()
-            print("\nRunning default demo...")
-            return await run_default_demo(app)
-            
+        if args.demo:
+            await app.run_demo()
+        elif args.single:
+            result = await app.run_single_cycle()
+            if not result.get("success", False):
+                sys.exit(1)
+        elif args.continuous:
+            await app.run_continuous_loop(args.interval)
+        elif args.health_check:
+            result = await app.run_health_check()
+            if not result.get("overall_status", {}).get("healthy", False):
+                sys.exit(1)
+    
     except KeyboardInterrupt:
-        app.logger.info("Application interrupted by user")
-        return 1
+        print("\n🛑 Graceful shutdown completed.")
     except Exception as e:
-        app.logger.error(f"Application error: {e}")
-        return 1
+        print(f"❌ Error: {e}")
+        sys.exit(1)
 
-async def run_default_demo(app: FikFapScraperApplication) -> int:
-    """Run default demo showing system capabilities"""
-    logger = app.logger
-    
-    try:
-        logger.info("🎬 FikFap Scraper - Phase 5: Complete System Integration")
-        logger.info("=" * 80)
-        
-        # System check
-        logger.info("Step 1: System Health Check")
-        status = await app.run_system_check()
-        if 'error' in status:
-            logger.error("System check failed, aborting demo")
-            return 1
-        
-        logger.info("Step 2: Single Video Processing Demo")
-        demo_post_id = 12345
-        success = await app.run_single_video(demo_post_id)
-        
-        if success:
-            logger.info("Step 3: Batch Processing Demo")
-            demo_post_ids = [12346, 12347, 12348]
-            batch_result = await app.run_batch_processing(demo_post_ids, max_concurrent=2)
-            
-            if batch_result.get('success'):
-                logger.info("🎉 Demo completed successfully!")
-                logger.info("✅ All Phase 5 features demonstrated:")
-                logger.info("   - Complete workflow orchestration")
-                logger.info("   - Dependency injection and component integration")
-                logger.info("   - Error handling and recovery")
-                logger.info("   - System health monitoring")
-                logger.info("   - Batch processing with concurrency control")
-                logger.info("   - Graceful startup and shutdown")
-                logger.info("=" * 80)
-                return 0
-        
-        logger.error("Demo encountered errors")
-        return 1
-        
-    except Exception as e:
-        logger.error(f"Demo failed: {e}")
-        return 1
 
 def run():
-    """Synchronous entry point"""
-    try:
-        exit_code = asyncio.run(main())
-        sys.exit(exit_code)
-    except KeyboardInterrupt:
-        print("\nApplication interrupted")
-        sys.exit(1)
-    except Exception as e:
-        print(f"Fatal error: {e}")
-        sys.exit(1)
+    """Synchronous wrapper for async main."""
+    asyncio.run(main())
+
 
 if __name__ == "__main__":
     run()

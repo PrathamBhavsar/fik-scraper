@@ -32,6 +32,10 @@ class ComponentError(OrchestrationError):
     """Exception raised by individual components"""
     pass
 
+class ScrapingError(ProcessingError):
+    """Exception raised during scraping operations"""
+    pass
+
 class ConfigurationError(OrchestrationError):
     """Exception raised for configuration issues"""
     pass
