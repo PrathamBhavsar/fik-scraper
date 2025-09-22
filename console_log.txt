@@ -1,0 +1,243 @@
+S U:\code\fik-scraper> python main.py --single
+2025-09-23 01:36:55 - FikFapMainApplication - INFO - Starting single cycle execution
+🔧 [WORKFLOW-DEBUG-001] Starting FikFapWorkflowIntegrator.__init__()
+🔧 [WORKFLOW-DEBUG-002] Logger setup completed
+🔧 [WORKFLOW-DEBUG-003] Config loaded
+🔧 [WORKFLOW-DEBUG-005] Component references initialized as None
+🔧 [WORKFLOW-DEBUG-006] State management initialized
+🔧 [WORKFLOW-DEBUG-007] Workflow stats initialized
+✅ [WORKFLOW-DEBUG-008] FikFapWorkflowIntegrator.__init__() COMPLETED SUCCESSFULLY
+🚀 [WORKFLOW-DEBUG-AENTER-001] Starting __aenter__() - async with support
+🚀 [WORKFLOW-DEBUG-009] Starting FikFapWorkflowIntegrator.initialize()
+2025-09-23 01:36:55 - FikFapWorkflowIntegrator - INFO - [LAUNCH] [WORKFLOW-DEBUG-010] Initializing FikFap Workflow Integrator
+🔧 [WORKFLOW-DEBUG-011] STEP 1: Initializing API scraper
+2025-09-23 01:36:55 - FikFapWorkflowIntegrator - INFO - [TOOL] [WORKFLOW-DEBUG-012] Initializing API scraper
+🔧 [WORKFLOW-DEBUG-013] Creating FikFapAPIScraper instance
+🔧 [DEBUG-001] Starting FikFapAPIScraper.__init__()
+🔧 [DEBUG-002] super().__init__() completed
+🔧 [DEBUG-003] Logger setup completed
+🔧 [DEBUG-004] Config loaded
+🔧 [DEBUG-005] BaseScraper initialized
+🔧 [DEBUG-006] FikFapDataExtractor initialized
+🔧 [DEBUG-007] DataValidator initialized
+🔧 [DEBUG-008] Browser components initialized as None
+🔧 [DEBUG-009] State management initialized
+🔧 [DEBUG-010] API endpoints set
+🔧 [DEBUG-011] Request tracking initialized
+🔧 [DEBUG-012] Pipeline integration initialized
+✅ [DEBUG-013] FikFapAPIScraper.__init__() COMPLETED SUCCESSFULLY
+✅ [WORKFLOW-DEBUG-014] FikFapAPIScraper instance created
+🔧 [WORKFLOW-DEBUG-015] Calling await self.api_scraper.start()
+🚀 [DEBUG-014] Starting FikFapAPIScraper.start()
+2025-09-23 01:36:55 - FikFapAPIScraper - INFO - [LAUNCH] [DEBUG-015] Initializing FikFap API Scraper
+🔧 [DEBUG-016] Step 1: Calling await self.start_session()
+2025-09-23 01:36:55 - fikfap_scraper - INFO - HTTP session and data extractor initialized
+✅ [DEBUG-017] Step 1: Parent session initialized
+🔧 [DEBUG-018] Step 2: Starting Playwright
+✅ [DEBUG-019] Step 2: Playwright started successfully
+🔧 [DEBUG-020] Step 3: Configuring browser settings
+🔧 [DEBUG-021] Browser config: {'headless': False, 'slow_mo': 1000, 'timeout': 60000, 'args': ['--no-sandbox', '--disable-dev-shm-usage', '--disable-blink-features=AutomationControlled', '--disable-web-security', '--allow-running-insecure-content', '--disable-features=VizDisplayCompositor']}
+🔧 [DEBUG-022] Step 3: Launching Chromium browser
+✅ [DEBUG-023] Step 3: Browser launched successfully
+🔧 [DEBUG-024] Step 4: Creating browser context
+🔧 [DEBUG-025] Context config prepared
+✅ [DEBUG-026] Step 4: Browser context created
+🔧 [DEBUG-027] Step 5: Creating new page
+✅ [DEBUG-028] Step 5: Page created successfully
+🔧 [DEBUG-029] Step 6: Setting up request interception
+✅ [DEBUG-030] Step 6: Request interception setup
+🔧 [DEBUG-031] Step 7: Setting up API response interception
+🔧 [DEBUG-152] Setting up API interception
+✅ [DEBUG-153] API interception setup completed
+✅ [DEBUG-032] Step 7: API interception setup completed
+2025-09-23 01:36:55 - FikFapAPIScraper - INFO - [OK] [DEBUG-033] FikFap API Scraper initialized successfully
+🎉 [DEBUG-034] FikFapAPIScraper.start() COMPLETED SUCCESSFULLY
+✅ [WORKFLOW-DEBUG-016] API scraper started successfully
+🔧 [WORKFLOW-DEBUG-017] STEP 2: Initializing orchestrator
+2025-09-23 01:36:55 - FikFapWorkflowIntegrator - INFO - [TOOL] [WORKFLOW-DEBUG-018] Initializing orchestrator
+🔧 [WORKFLOW-DEBUG-019] Creating FikFapScraperOrchestrator instance
+2025-09-23 01:36:55 - fikfap_orchestrator - INFO - Initializing FikFap Scraper Orchestrator...
+2025-09-23 01:36:55 - disk_monitor - INFO - DiskMonitor initialized - Paths: ['./downloads']
+2025-09-23 01:36:55 - system_monitor - INFO - SystemMonitor initialized
+2025-09-23 01:36:55 - disk_monitor - INFO - DiskMonitor initialized - Paths: ['./downloads']
+2025-09-23 01:36:55 - file_manager - INFO - FileManager initialized - Base path: downloads
+2025-09-23 01:36:56 - metadata_handler - INFO - MetadataHandler initialized
+2025-09-23 01:36:56 - fikfap_scraper - INFO - Quality Manager initialized - VP9 exclusion: False
+2025-09-23 01:36:56 - fikfap_scraper - INFO - Quality Manager initialized - VP9 exclusion: False
+2025-09-23 01:36:56 - fikfap_scraper - INFO - M3U8 Downloader initialized
+2025-09-23 01:36:56 - fikfap_orchestrator - INFO - All available components initialized successfully
+2025-09-23 01:36:56 - fikfap_orchestrator - INFO - FikFap Scraper Orchestrator initialized successfully
+✅ [WORKFLOW-DEBUG-020] FikFapScraperOrchestrator instance created
+🔧 [WORKFLOW-DEBUG-021] Calling await self.orchestrator.startup()
+2025-09-23 01:36:56 - fikfap_orchestrator - INFO - [LAUNCH] Starting FikFap Scraper System...
+2025-09-23 01:36:56 - fikfap_orchestrator - INFO - [HEALTH] Performing startup health checks...
+2025-09-23 01:36:56 - fikfap_orchestrator - INFO - [OK] Startup health checks completed
+2025-09-23 01:36:56 - fikfap_orchestrator - INFO - [SCRAPER] Initializing scraper-dependent components...
+2025-09-23 01:36:56 - fikfap_scraper - INFO - HTTP session and data extractor initialized
+2025-09-23 01:36:56 - fikfap_orchestrator - INFO - [OK] Scraper-dependent components initialized
+2025-09-23 01:36:56 - fikfap_orchestrator - INFO - [FOLDER] Initializing storage system...
+2025-09-23 01:36:56 - fikfap_orchestrator - INFO - [OK] Storage system initialized
+2025-09-23 01:36:56 - fikfap_orchestrator - INFO - [CHART] Loading system state...
+2025-09-23 01:36:56 - fikfap_orchestrator - INFO - Loaded processing history: 0 processed posts
+2025-09-23 01:36:56 - fikfap_orchestrator - INFO - [OK] System state loaded
+2025-09-23 01:36:56 - fikfap_orchestrator - INFO - [SETTINGS] Starting background tasks...
+2025-09-23 01:36:56 - fikfap_orchestrator - INFO - [OK] Background tasks started
+2025-09-23 01:36:56 - fikfap_orchestrator - INFO - [OK] System startup completed successfully in 0.11s
+2025-09-23 01:36:56 - fikfap_orchestrator - INFO - [DISK] Disk Space: 789.28GB free
+2025-09-23 01:36:56 - fikfap_orchestrator - INFO - [MEMORY] Memory: 56.3% used
+2025-09-23 01:36:56 - fikfap_orchestrator - INFO - [TOOL] CPU: 23.6% used
+✅ [WORKFLOW-DEBUG-022] Orchestrator started successfully
+🔧 [WORKFLOW-DEBUG-023] STEP 3: Setting up integration hooks
+🚀 [WORKFLOW-DEBUG-029] Starting _setup_integration_hooks()
+🔧 [WORKFLOW-DEBUG-030] Setting up scraped_posts_cache
+✅ [WORKFLOW-DEBUG-031] scraped_posts_cache initialized
+🔧 [WORKFLOW-DEBUG-032] Getting original extract method
+✅ [WORKFLOW-DEBUG-033] Original extract method obtained
+🔧 [WORKFLOW-DEBUG-037] Replacing orchestrator extract method
+✅ [WORKFLOW-DEBUG-038] Method replacement completed
+🎉 [WORKFLOW-DEBUG-039] _setup_integration_hooks() COMPLETED SUCCESSFULLY
+✅ [WORKFLOW-DEBUG-024] Integration hooks setup completed
+🔧 [WORKFLOW-DEBUG-025] STEP 4: Finalizing initialization
+✅ [WORKFLOW-DEBUG-026] Initialization finalized
+2025-09-23 01:36:56 - FikFapWorkflowIntegrator - INFO - [OK] [WORKFLOW-DEBUG-027] FikFap Workflow Integrator initialized successfully
+🎉 [WORKFLOW-DEBUG-028] FikFapWorkflowIntegrator.initialize() COMPLETED SUCCESSFULLY
+✅ [WORKFLOW-DEBUG-AENTER-002] __aenter__() completed successfully
+🚀 [WORKFLOW-DEBUG-040] Starting run_single_cycle()
+🔧 [WORKFLOW-DEBUG-041] Starting cycle #1
+2025-09-23 01:36:56 - FikFapWorkflowIntegrator - INFO - [TOOL] [WORKFLOW-DEBUG-042] Starting workflow cycle #1
+🔧 [WORKFLOW-DEBUG-044] STEP 1: About to call _scrape_posts_from_api()
+2025-09-23 01:36:56 - FikFapWorkflowIntegrator - INFO - [TOOL] [WORKFLOW-DEBUG-045] Step 1: Scraping posts from FikFap API
+🚀 [WORKFLOW-DEBUG-066] Starting _scrape_posts_from_api()
+2025-09-23 01:36:56 - FikFapWorkflowIntegrator - INFO - [LAUNCH] [WORKFLOW-DEBUG-067] Starting API scraping workflow (Pipeline Style)
+🔧 [WORKFLOW-DEBUG-068] STEP A: Calling api_scraper.scrape_and_extract_pipeline_style()
+🚀 [DEBUG-035] Starting scrape_and_extract_pipeline_style()
+2025-09-23 01:36:56 - FikFapAPIScraper - INFO - [LAUNCH] [DEBUG-036] Starting FikFap API scraping and extraction (Pipeline Style)
+🔧 [DEBUG-037] STEP 1: About to call _scrape_complete_workflow()
+2025-09-23 01:36:56 - FikFapAPIScraper - INFO - 📡 [DEBUG-038] Step 1: Scraping posts from FikFap API...
+🚀 [DEBUG-053] Starting _scrape_complete_workflow()
+2025-09-23 01:36:56 - FikFapAPIScraper - INFO - [LAUNCH] [DEBUG-054] Starting complete FikFap API scraping...
+🔧 [DEBUG-055] STEP A: About to call _scrape_initial_batch()
+🚀 [DEBUG-070] Starting _scrape_initial_batch()
+2025-09-23 01:36:56 - FikFapAPIScraper - INFO - [LAUNCH] [DEBUG-071] Scraping initial batch (5 posts)
+🔧 [DEBUG-072] Clearing previous responses
+✅ [DEBUG-073] Previous responses cleared
+🔧 [DEBUG-074] Navigating to FikFap.com...
+2025-09-23 01:36:56 - FikFapAPIScraper - INFO - 🌐 [DEBUG-075] Navigating to FikFap.com...
+🔍 [DEBUG-OTHER-FIKFAP] 200 https://fikfap.com/
+🔍 [DEBUG-OTHER-FIKFAP] 200 https://fikfap.com/assets/index-uUM6LOYU.css
+🔍 [DEBUG-OTHER-FIKFAP] 200 https://fikfap.com/assets/index-BQtFuMbZ.js
+🌐 [DEBUG-API-REQUEST] GET https://api.fikfap.com/init
+2025-09-23 01:36:58 - FikFapAPIScraper - INFO - 🌐 REQUEST: GET https://api.fikfap.com/init
+🔍 [DEBUG-OTHER-FIKFAP] 302 https://fikfap.com/cdn-cgi/challenge-platform/scripts/jsd/main.js
+🔍 [DEBUG-OTHER-FIKFAP] 200 https://fikfap.com/assets/workbox-window.prod.es5-D5gOYdM7.js
+🔍 [DEBUG-OTHER-FIKFAP] 200 https://fikfap.com/cdn-cgi/challenge-platform/h/b/scripts/jsd/5783333ceb22/main.js?
+🔍 [DEBUG-OTHER-FIKFAP] 200 https://fikfap.com/cdn-cgi/challenge-platform/h/b/jsd/r/0.6587507506033531:1758568465:vjquZCUW8tckD-wsM6KgK4i5d718z8qbal4V9tSe_0s/98346c9fda8d493e
+🔍 [DEBUG-OTHER-FIKFAP] 204 https://analytics.google.com/g/collect?v=2&tid=G-TQXYS1BESX&gtm=45je59i0v869129024za200zd869129024&_p=1758571618216&_gaz=1&gcs=G111&gcd=13t3t3l3l5l1&npa=0&dma=0&cid=1821851350.1758571618&ul=en-gb&sr=1920x1080&uaa=x86&uab=64&uafvl=Not%253DA%253FBrand%3B24.0.0.0%7CChromium%3B140.0.7339.16&uamb=0&uam=&uap=Windows&uapv=10.0&uaw=0&are=1&frm=0&pscdl=noapi&_s=1&tag_exp=101509157~103116026~103200004~103233427~104527906~104528501~104684208~104684211~104948813~105359937~115480710~115616985&sid=1758571618&sct=1&seg=0&dl=https%3A%2F%2Ffikfap.com%2F&dt=FikFap&en=initialized&_fv=1&_nsi=1&_ss=1&_ee=1&ep.label=App%20Version%208121%20App%20Hash%2006377c0c5709aa971a9f04ff0a0013cb61e2fd7c&ep.nonInteraction=true&ep.event_name=initialized&up.is_high_value_phone=false&up.app_version=8121&up.is_pwa=false&up.country_code=IN&tfd=2140
+🔍 [DEBUG-OTHER-FIKFAP] 204 https://analytics.google.com/g/collect?v=2&tid=G-TQXYS1BESX&gtm=45je59i0v869129024za200zd869129024&_p=1758571618216&gcs=G111&gcd=13v3v3l3l5l1&npa=0&dma=0&cid=1821851350.1758571618&ul=en-gb&sr=1920x1080&uaa=x86&uab=64&uafvl=Not%253DA%253FBrand%3B24.0.0.0%7CChromium%3B140.0.7339.16&uamb=0&uam=&uap=Windows&uapv=10.0&uaw=0&are=1&frm=0&pscdl=noapi&_eu=AAAAAAQ&_s=2&tag_exp=101509157~103116026~103200004~103233427~104527906~104528501~104684208~104684211~104948813~105359937~115480710~115616985&dl=%2F&sid=1758571618&sct=1&seg=1&dt=FikFap&en=page_view&_ee=1&_et=6&up.g_banned=false&up.g_cookie_banner=false&up.g_age_verification=false&up.g_adult_banner=false&up.g_adult_banner_leave_btn=false&tfd=2152
+🔍 [DEBUG-OTHER-FIKFAP] 200 https://fikfap.com/favicon.svg
+🔍 [DEBUG-OTHER-FIKFAP] 200 https://api.fikfap.com/init
+🌐 [DEBUG-API-REQUEST] GET https://api.fikfap.com/user
+2025-09-23 01:36:59 - FikFapAPIScraper - INFO - 🌐 REQUEST: GET https://api.fikfap.com/user
+🔍 [DEBUG-OTHER-FIKFAP] 200 https://fikfap.com/cached-posts/STRAIGHT-41.json
+🔍 [DEBUG-OTHER-FIKFAP] 206 https://fikfap.com/assets/m.mp4
+🔍 [DEBUG-OTHER-FIKFAP] 204 https://analytics.google.com/g/collect?v=2&tid=G-TQXYS1BESX&gtm=45je59i0v869129024za200zd869129024&_p=1758571618216&gcs=G111&gcd=13v3v3l3l5l1&npa=0&dma=0&cid=1821851350.1758571618&ul=en-gb&sr=1920x1080&uaa=x86&uab=64&uafvl=Not%253DA%253FBrand%3B24.0.0.0%7CChromium%3B140.0.7339.16&uamb=0&uam=&uap=Windows&uapv=10.0&uaw=0&are=1&frm=0&pscdl=noapi&_eu=AEAAAAQ&_s=3&tag_exp=101509157~103116026~103200004~103233427~104527906~104528501~104684208~104684211~104948813~105359937~115480710~115616985&sid=1758571618&sct=1&seg=1&dl=https%3A%2F%2Ffikfap.com%2F&dt=FikFap&en=scroll&epn.percent_scrolled=90&_et=3&tfd=3249
+🔍 [DEBUG-OTHER-FIKFAP] 206 https://fikfap.com/assets/m.mp4
+🔍 [DEBUG-OTHER-FIKFAP] 206 https://fikfap.com/assets/m.mp4
+🌐 [DEBUG-API-REQUEST] GET https://api.fikfap.com/cached-high-quality/posts?amount=5
+2025-09-23 01:36:59 - FikFapAPIScraper - INFO - 🌐 REQUEST: GET https://api.fikfap.com/cached-high-quality/posts?amount=5
+🔍 [DEBUG-OTHER-FIKFAP] 200 https://fikfap.com/assets/story-default.webp
+🔍 [DEBUG-OTHER-FIKFAP] 200 https://fikfap.com/assets/m.mp4
+🔍 [DEBUG-OTHER-FIKFAP] 200 https://fikfap.com/assets/m.mp4
+🔍 [DEBUG-OTHER-FIKFAP] 200 https://api.fikfap.com/user
+🔍 [DEBUG-OTHER-FIKFAP] 200 https://fikfap-media-prod.b-cdn.net/users/thumbnails/9f1b7b1d-3400-4cff-8b66-a6fc4491a9a7.jpg?token=Zhemb2zFZI8Ku-dyunjVQ72ikZ1Jn_gU2Bq8KkCtzbM&height=224&token_countries=IN&width=224&expires=1758575203
+🎯 [DEBUG-URL-MATCH] Pattern 'api.fikfap.com/cached-high-quality/posts' matched in https://api.fikfap.com/cached-high-quality/posts?amount=5
+🎯 [DEBUG-API-RESPONSE] TARGET INTERCEPTED: 200 https://api.fikfap.com/cached-high-quality/posts?amount=5
+2025-09-23 01:37:00 - FikFapAPIScraper - INFO - [TARGET] [TARGET] RESPONSE INTERCEPTED: 200 https://api.fikfap.com/cached-high-quality/posts?amount=5
+✅ [DEBUG-API-STORED] initial_batch: 5 items
+2025-09-23 01:37:00 - FikFapAPIScraper - INFO - [OK] [OK] API DATA STORED: initial_batch (5 items, status: 200)
+🔍 [DEBUG-OTHER-FIKFAP] 200 https://fikfap.com/assets/story-default.webp
+🔍 [DEBUG-OTHER-FIKFAP] 200 https://fikfap-media-prod.b-cdn.net/users/thumbnails/e4be228b-21c3-4537-9f54-36a2930af38f.jpg?token=cWJ7t_4-Q3P8wd4OE8_TTq72CcCZPyE7oDAjpUGUu2Q&height=224&token_countries=IN&width=224&expires=1758575204
+✅ [DEBUG-076] Navigation completed
+🔧 [DEBUG-077] Waiting 3 seconds for page to load
+🔍 [DEBUG-OTHER-FIKFAP] 204 https://analytics.google.com/g/collect?v=2&tid=G-TQXYS1BESX&gtm=45je59i0v869129024za200zd869129024&_p=1758571618216&gcs=G111&gcd=13v3v3l3l5l1&npa=0&dma=0&cid=1821851350.1758571618&ul=en-gb&sr=1920x1080&uaa=x86&uab=64&uafvl=Not%253DA%253FBrand%3B24.0.0.0%7CChromium%3B140.0.7339.16&uamb=0&uam=&uap=Windows&uapv=10.0&uaw=0&are=1&frm=0&pscdl=noapi&_eu=AAAAAAQ&tag_exp=101509157~103116026~103200004~103233427~104527906~104528501~104684208~104684211~104948813~105359937~115480710~115616985&sid=1758571618&sct=1&seg=1&dl=https%3A%2F%2Ffikfap.com%2F&dt=FikFap&_s=4&tfd=8253
+✅ [DEBUG-078] Wait completed
+🔧 [DEBUG-079] Getting page title
+✅ [DEBUG-080] Page title: For You - FikFap
+2025-09-23 01:37:05 - FikFapAPIScraper - INFO - [FILE] [DEBUG-081] Page loaded: For You - FikFap
+🔧 [DEBUG-082] Waiting for initial API call interception
+2025-09-23 01:37:05 - FikFapAPIScraper - INFO - ⏳ [DEBUG-083] Waiting for initial API call to be intercepted...
+🔧 [DEBUG-154] Waiting for API response: initial_batch (timeout: 30s)
+✅ [DEBUG-155] API response received for initial_batch
+2025-09-23 01:37:05 - FikFapAPIScraper - INFO - [OK] [OK] API response received for initial_batch
+✅ [DEBUG-084] API wait result: True
+🔧 [DEBUG-104] Extracting posts data from response
+✅ [DEBUG-105] Extracted 5 posts from response
+2025-09-23 01:37:05 - FikFapAPIScraper - INFO - [OK] [DEBUG-106] Successfully intercepted initial batch: 5 posts
+🎉 [DEBUG-107] _scrape_initial_batch() COMPLETED SUCCESSFULLY
+✅ [DEBUG-056] STEP A RESULT: _scrape_initial_batch() returned 5 posts
+2025-09-23 01:37:05 - FikFapAPIScraper - INFO - [OK] [DEBUG-058] Retrieved 5 initial posts
+🔧 [DEBUG-059] STEP B: About to call _extract_pagination_id()
+🔧 [DEBUG-158] Extracting pagination ID
+✅ [DEBUG-160] Extracted pagination ID: 267886
+2025-09-23 01:37:05 - FikFapAPIScraper - INFO - 📍 Extracted pagination ID: 267886
+✅ [DEBUG-060] STEP B RESULT: _extract_pagination_id() returned 267886
+🔧 [DEBUG-062] STEP C: About to call _scrape_next_batch()
+🚀 [DEBUG-161] Starting _scrape_next_batch() with after_id: 267886
+2025-09-23 01:37:05 - FikFapAPIScraper - INFO - Scraping next batch (9 posts) after ID: 267886
+🔧 [DEBUG-165] Triggering pagination
+🔍 [DEBUG-OTHER-FIKFAP] 204 https://analytics.google.com/g/collect?v=2&tid=G-TQXYS1BESX&gtm=45je59i0v869129024za200zd869129024&_p=1758571618216&gcs=G111&gcd=13v3v3l3l5l1&npa=0&dma=0&cid=1821851350.1758571618&ul=en-gb&sr=1920x1080&uaa=x86&uab=64&uafvl=Not%253DA%253FBrand%3B24.0.0.0%7CChromium%3B140.0.7339.16&uamb=0&uam=&uap=Windows&uapv=10.0&uaw=0&are=1&frm=0&pscdl=noapi&_eu=AAAAAAQ&_s=5&tag_exp=101509157~103116026~103200004~103233427~104527906~104528501~104684208~104684211~104948813~105359937~115480710~115616985&sid=1758571618&sct=1&seg=1&dl=https%3A%2F%2Ffikfap.com%2F&dt=For%20You%20-%20FikFap&en=show_ad&_ee=1&ep.campaign_label=chaturbate-cookie&ep.event_name=show_ad&_et=10006&up.prefer_sexualorientation=LESBIAN%2C%20STRAIGHT&up.is_signed_in=false&up.is_partner=false&up.is_age_verified=false&tfd=18293
+🔍 [DEBUG-OTHER-FIKFAP] 204 https://analytics.google.com/g/collect?v=2&tid=G-TQXYS1BESX&gtm=45je59i0v869129024za200zd869129024&_p=1758571618216&gcs=G111&gcd=13v3v3l3l5l1&npa=0&dma=0&cid=1821851350.1758571618&ul=en-gb&sr=1920x1080&uaa=x86&uab=64&uafvl=Not%253DA%253FBrand%3B24.0.0.0%7CChromium%3B140.0.7339.16&uamb=0&uam=&uap=Windows&uapv=10.0&uaw=0&are=1&frm=0&pscdl=noapi&_eu=AAAAAAQ&_s=6&tag_exp=101509157~103116026~103200004~103233427~104527906~104528501~104684208~104684211~104948813~105359937~115480710~115616985&sid=1758571618&sct=1&seg=1&dl=https%3A%2F%2Ffikfap.com%2F&dt=For%20You%20-%20FikFap&en=show_app_tutorial&_ee=1&ep.event_name=show_app_tutorial&_et=9997&tfd=28286
+🔧 [DEBUG-154] Waiting for API response: pagination_batch (timeout: 45s)
+⏰ [DEBUG-156] Timeout waiting for pagination_batch
+2025-09-23 01:38:14 - FikFapAPIScraper - WARNING - ⏰ Timeout waiting for API response: pagination_batch
+⚠️ [DEBUG-162] No pagination response, trying alternatives
+2025-09-23 01:38:14 - FikFapAPIScraper - WARNING - Pagination API call not intercepted, trying alternative methods
+🔧 [DEBUG-167] Trying alternative pagination methods
+🔧 [DEBUG-154] Waiting for API response: pagination_batch (timeout: 30s)
+⏰ [DEBUG-156] Timeout waiting for pagination_batch
+2025-09-23 01:38:44 - FikFapAPIScraper - WARNING - ⏰ Timeout waiting for API response: pagination_batch
+❌ [DEBUG-163] Failed to get pagination response
+❌ [DEBUG-ERROR-015] _scrape_next_batch() failed: Failed to intercept pagination API call
+2025-09-23 01:38:44 - FikFapAPIScraper - ERROR - Failed to scrape next batch: Failed to intercept pagination API call
+❌ [DEBUG-ERROR-004] _scrape_complete_workflow() FAILED: Next batch scraping failed: Failed to intercept pagination API call
+2025-09-23 01:38:44 - FikFapAPIScraper - ERROR - Complete workflow failed: Next batch scraping failed: Failed to intercept pagination API call
+❌ [DEBUG-ERROR-003] scrape_and_extract_pipeline_style() FAILED: FikFap scraping workflow failed: Next batch scraping failed: Failed to intercept pagination API call
+2025-09-23 01:38:44 - FikFapAPIScraper - ERROR - Pipeline-style extraction failed: FikFap scraping workflow failed: Next batch scraping failed: Failed to intercept pagination API call
+✅ [WORKFLOW-DEBUG-069] STEP A RESULT: scrape_and_extract_pipeline_style() returned
+🔧 [WORKFLOW-DEBUG-070] Success: False
+❌ [WORKFLOW-DEBUG-071] Pipeline-style API scraping failed: FikFap scraping workflow failed: Next batch scraping failed: Failed to intercept pagination API call
+❌ [WORKFLOW-DEBUG-ERROR-005] _scrape_posts_from_api() FAILED: Pipeline-style API scraping failed: FikFap scraping workflow failed: Next batch scraping failed: Failed to intercept pagination API call
+2025-09-23 01:38:44 - FikFapWorkflowIntegrator - ERROR - Failed to scrape posts from API (Pipeline Style): Pipeline-style API scraping failed: FikFap scraping workflow failed: Next batch scraping failed: Failed to intercept pagination API call
+❌ [WORKFLOW-DEBUG-ERROR-004] run_single_cycle() FAILED: Pipeline-style API scraping failed: Pipeline-style API scraping failed: FikFap scraping workflow failed: Next batch scraping failed: Failed to intercept pagination API call
+2025-09-23 01:38:44 - FikFapWorkflowIntegrator - ERROR - Workflow cycle #1 failed: Pipeline-style API scraping failed: Pipeline-style API scraping failed: FikFap scraping workflow failed: Next batch scraping failed: Failed to intercept pagination API call
+🔧 [WORKFLOW-DEBUG-064] Clearing cache
+✅ [WORKFLOW-DEBUG-065] Cache cleared
+2025-09-23 01:38:44 - FikFapMainApplication - ERROR - Single cycle failed: Pipeline-style API scraping failed: Pipeline-style API scraping failed: FikFap scraping workflow failed: Next batch scraping failed: Failed to intercept pagination API call
+🚀 [WORKFLOW-DEBUG-AEXIT-001] Starting __aexit__() - cleanup
+🚀 [WORKFLOW-DEBUG-101] Starting cleanup()
+2025-09-23 01:38:44 - FikFapWorkflowIntegrator - INFO - [TOOL] [WORKFLOW-DEBUG-102] Cleaning up FikFap Workflow Integrator
+🔧 [WORKFLOW-DEBUG-103] Shutting down orchestrator
+2025-09-23 01:38:44 - fikfap_orchestrator - INFO - [STOP] Initiating system shutdown...
+2025-09-23 01:38:44 - fikfap_orchestrator - INFO - Stopping new job acceptance...
+2025-09-23 01:38:44 - fikfap_orchestrator - INFO - Stopping background tasks...
+2025-09-23 01:38:44 - fikfap_orchestrator - INFO - [DISK] Saving system state...
+2025-09-23 01:38:44 - fikfap_orchestrator - INFO - [STOP] Closing component sessions...
+2025-09-23 01:38:44 - fikfap_scraper - INFO - HTTP session closed
+2025-09-23 01:38:44 - fikfap_orchestrator - INFO - [CHART] Final Statistics:
+2025-09-23 01:38:44 - fikfap_orchestrator - INFO -    Videos Processed: 0
+2025-09-23 01:38:44 - fikfap_orchestrator - INFO -    Videos Failed: 0
+2025-09-23 01:38:44 - fikfap_orchestrator - INFO -    Videos Skipped: 0
+2025-09-23 01:38:44 - fikfap_orchestrator - INFO -    Total Bytes Downloaded: 0.0 B
+2025-09-23 01:38:44 - fikfap_orchestrator - INFO -    Total Processing Time: 0.00s
+2025-09-23 01:38:44 - fikfap_orchestrator - INFO -    System Uptime: 108.91s
+2025-09-23 01:38:44 - fikfap_orchestrator - INFO - [OK] System shutdown completed successfully in 0.00s
+✅ [WORKFLOW-DEBUG-104] Orchestrator shutdown completed
+🔧 [WORKFLOW-DEBUG-105] Closing API scraper
+🔧 [DEBUG-168] Starting cleanup
+2025-09-23 01:38:46 - fikfap_scraper - INFO - HTTP session closed
+✅ [DEBUG-169] Cleanup completed successfully
+✅ [WORKFLOW-DEBUG-106] API scraper closed
+✅ [WORKFLOW-DEBUG-107] Cleanup flags set
+2025-09-23 01:38:46 - FikFapWorkflowIntegrator - INFO - [OK] [WORKFLOW-DEBUG-108] FikFap Workflow Integrator cleanup completed
+🎉 [WORKFLOW-DEBUG-109] cleanup() COMPLETED SUCCESSFULLY
+✅ [WORKFLOW-DEBUG-AEXIT-002] __aexit__() completed successfully

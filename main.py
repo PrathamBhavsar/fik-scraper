@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import Optional, Dict, Any
 
 # Import the workflow components
-from fikfap_workflow_integrator import FikFapWorkflowIntegrator, FikFapContinuousRunner
+from fikfap_workflow_integrator import FikFapWorkflowIntegrator
 from core.config import Config, config
 from core.exceptions import *
 from utils.logger import setup_logger
@@ -107,7 +107,7 @@ class FikFapMainApplication:
                 
                 # Create continuous runner
                 config_override = {"continuous.loop_interval": interval}
-                self.continuous_runner = FikFapContinuousRunner(integrator, config_override)
+                # self.continuous_runner = FikFapContinuousRunner(integrator, config_override)
                 
                 # Start continuous loop
                 await self.continuous_runner.run_continuous_loop()
