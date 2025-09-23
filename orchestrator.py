@@ -521,7 +521,7 @@ class FikFapScraperOrchestrator:
         
         for i, result in enumerate(results):
             post_id = post_ids[i]
-            
+
             if isinstance(result, Exception):
                 failed.append({
                     'post_id': post_id,
@@ -529,7 +529,8 @@ class FikFapScraperOrchestrator:
                     'success': False
                 })
             elif result.get('success'):
-                if result.get('job_info', {}).get('status') == 'skipped_duplicate':
+                # Fix: Check for duplicate using 'is_duplicate' key
+                if result.get('is_duplicate'):
                     skipped.append(result)
                 else:
                     successful.append(result)
@@ -546,8 +547,8 @@ class FikFapScraperOrchestrator:
             'duration': duration,
             'videos_per_second': len(successful) / duration if duration > 0 else 0,
             'total_size_bytes': sum(
-                result.get('stats', {}).get('total_size_bytes', 0) 
-                for result in successful
+                result.get('stats', {}).get('total_size_bytes', 0)
+                for result in successful if isinstance(result, dict)
             )
         }
         
