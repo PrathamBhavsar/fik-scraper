@@ -1,0 +1,8 @@
+{
+  "storage": {
+    "base_path": "./downloads2gb"
+  },
+  "monitoring": {
+    "min_disk_space_gb": 2.0
+  }
+}

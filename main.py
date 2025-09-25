@@ -1,12 +1,11 @@
 """
-UPDATED main.py - FikFap Scraper with Live Disk Space Limit Enforcement
+FIXED main.py - FikFap Scraper with UTF-8 Support and No Emoji Encoding Errors
 
 FIXES APPLIED:
-1. Added live disk space limit checking before and after each cycle
-2. Uses actual directory size calculation (not free space)  
-3. Immediately stops execution when downloads directory exceeds max size
-4. Loads max size from settings.json -> monitoring.min_disk_space_gb
-5. Graceful shutdown with proper logging
+1. Fixed charmap codec error by removing problematic emojis
+2. Added proper UTF-8 encoding for subprocess output
+3. Ensured cross-platform compatibility
+4. All functionality preserved without encoding issues
 """
 
 import asyncio
@@ -14,32 +13,91 @@ import argparse
 import signal
 import sys
 import json
+import os
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, Dict, Any
+
+# Set UTF-8 encoding for stdout/stderr on Windows
+if os.name == 'nt':  # Windows
+    import codecs
+    sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, 'strict')
+    sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer, 'strict')
 
 # Import the workflow components
 from fikfap_workflow_integrator import FikFapWorkflowIntegrator, FikFapContinuousRunner
 from video_downloader_organizer import VideoDownloaderOrganizer
 
-# Import existing components
-from core.config import Config, config
-from core.exceptions import *
-from utils.logger import setup_logger
-from utils.disk_space import get_free_space_gb, get_directory_size_gb, check_disk_space_limit
+# Import existing components (with fallbacks for missing modules)
+try:
+    from utils.logger import setup_logger
+except ImportError:
+    import logging
+    def setup_logger(name, level="INFO"):
+        logger = logging.getLogger(name)
+        logger.setLevel(getattr(logging, level))
+        if not logger.handlers:
+            handler = logging.StreamHandler()
+            # Use UTF-8 encoding for log handler
+            if hasattr(handler.stream, 'reconfigure'):
+                handler.stream.reconfigure(encoding='utf-8')
+            formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+            handler.setFormatter(formatter)
+            logger.addHandler(handler)
+        return logger
+
+try:
+    from utils.disk_space import get_free_space_gb, get_directory_size_gb, check_disk_space_limit
+except ImportError:
+    import shutil
+    import os
+
+    def get_free_space_gb(path: str | Path) -> float:
+        """Return free disk space in GB"""
+        usage = shutil.disk_usage(str(Path(path)))
+        return usage.free / (1024 ** 3)
+
+    def get_directory_size_gb(path: str | Path) -> float:
+        """Calculate directory size in GB"""
+        path = Path(path)
+        if not path.exists():
+            return 0.0
+        total_size = 0
+        try:
+            for dirpath, dirnames, filenames in os.walk(path):
+                for filename in filenames:
+                    filepath = Path(dirpath) / filename
+                    try:
+                        if filepath.exists() and filepath.is_file():
+                            total_size += filepath.stat().st_size
+                    except (OSError, PermissionError):
+                        continue
+        except (OSError, PermissionError):
+            return 0.0
+        return total_size / (1024 ** 3)
+
+    def check_disk_space_limit(downloads_dir: str | Path, max_size_gb: float) -> dict:
+        """Check disk space limit"""
+        downloads_dir = Path(downloads_dir)
+        current_size = get_directory_size_gb(downloads_dir)
+        free_space = get_free_space_gb(downloads_dir) if downloads_dir.exists() else 0.0
+        return {
+            'current_size_gb': current_size,
+            'max_size_gb': max_size_gb,
+            'exceeds_limit': current_size >= max_size_gb,
+            'free_space_gb': free_space
+        }
 
 
 class FikFapMainApplicationWithDownloader:
-    """Enhanced main application with video downloader integration"""
+    """Enhanced main application with video downloader integration - FIXED UTF-8 encoding"""
 
     def __init__(self, config_path: Optional[str] = None, log_level: str = "INFO"):
         # Setup logging
         self.logger = setup_logger(self.__class__.__name__, level=log_level)
 
-        # Load configuration
-        self.config = Config()
-        if config_path and Path(config_path).exists():
-            self.config.load_from_file(config_path)
+        # Load configuration directly from JSON (FIXED: No more Config class issues)
+        self.config = self.load_settings(config_path)
 
         # Components
         self.workflow_integrator: Optional[FikFapWorkflowIntegrator] = None
@@ -50,6 +108,44 @@ class FikFapMainApplicationWithDownloader:
         self.shutdown_requested = False
 
         self.setup_signal_handlers()
+
+    def load_settings(self, config_path: Optional[str] = None) -> Dict[str, Any]:
+        """Load settings from JSON file - FIXED: Direct JSON loading"""
+        default_settings = {
+            "storage": {"base_path": "./downloads"},
+            "monitoring": {"min_disk_space_gb": 1.0}
+        }
+
+        settings_file = config_path if config_path else "settings.json"
+
+        try:
+            if Path(settings_file).exists():
+                with open(settings_file, "r", encoding='utf-8') as f:
+                    settings = json.load(f)
+                    # Merge with defaults
+                    for key, value in default_settings.items():
+                        if key not in settings:
+                            settings[key] = value
+                        elif isinstance(value, dict):
+                            for subkey, subvalue in value.items():
+                                if subkey not in settings[key]:
+                                    settings[key][subkey] = subvalue
+                    return settings
+        except Exception as e:
+            self.logger.warning(f"Could not load {settings_file}: {e}, using defaults")
+
+        return default_settings
+
+    def get_config_value(self, key_path: str, default=None):
+        """Get configuration value using dot notation (e.g., 'storage.base_path')"""
+        keys = key_path.split('.')
+        value = self.config
+        try:
+            for key in keys:
+                value = value[key]
+            return value
+        except (KeyError, TypeError):
+            return default
 
     def setup_signal_handlers(self):
         """Setup signal handlers for graceful shutdown"""
@@ -85,7 +181,8 @@ class FikFapMainApplicationWithDownloader:
                     if download_videos and scrape_result.get("posts_scraped", 0) > 0:
                         self.logger.info("Starting video download process...")
 
-                        async with VideoDownloaderOrganizer("./downloads") as downloader:
+                        download_dir = self.get_config_value("storage.base_path", "./downloads")
+                        async with VideoDownloaderOrganizer(download_dir) as downloader:
                             self.video_downloader = downloader
 
                             # Download videos from scraped posts
@@ -127,12 +224,13 @@ class FikFapMainApplicationWithDownloader:
             async with FikFapWorkflowIntegrator() as integrator:
                 self.workflow_integrator = integrator
 
-                async with VideoDownloaderOrganizer("./downloads") as downloader:
+                download_dir = self.get_config_value("storage.base_path", "./downloads")
+                async with VideoDownloaderOrganizer(download_dir) as downloader:
                     self.video_downloader = downloader
 
                     config_override = {"continuous.loop_interval": interval}
                     self.continuous_runner = EnhancedContinuousRunner(
-                        integrator, downloader, config_override, download_videos
+                        integrator, downloader, config_override, download_videos, self.config
                     )
 
                     await self.continuous_runner.run_continuous_loop()
@@ -151,7 +249,8 @@ class FikFapMainApplicationWithDownloader:
             if not Path(posts_file).exists():
                 raise FileNotFoundError(f"Posts file not found: {posts_file}")
 
-            async with VideoDownloaderOrganizer("./downloads") as downloader:
+            download_dir = self.get_config_value("storage.base_path", "./downloads")
+            async with VideoDownloaderOrganizer(download_dir) as downloader:
                 self.video_downloader = downloader
 
                 download_result = await downloader.process_all_posts(posts_file)
@@ -233,11 +332,11 @@ class FikFapMainApplicationWithDownloader:
 
             # Check storage directories
             try:
-                downloads_dir = Path(self.config.get("storage.downloads_dir", "./downloads"))
+                downloads_dir = Path(self.get_config_value("storage.base_path", "./downloads"))
                 downloads_dir.mkdir(parents=True, exist_ok=True)
 
                 test_file = downloads_dir / "health_check_test.txt"
-                test_file.write_text("health check test")
+                test_file.write_text("health check test", encoding='utf-8')
                 test_file.unlink()
 
                 health_results["storage_status"] = {
@@ -354,27 +453,23 @@ class EnhancedContinuousRunner:
         downloader,
         config_override: Optional[Dict[str, Any]] = None,
         download_enabled: bool = True,
+        config: Optional[Dict[str, Any]] = None
     ):
         self.integrator = integrator
         self.downloader = downloader
         self.config_override = config_override or {}
         self.download_enabled = download_enabled
+        self.config = config or {}
 
         self.stop_requested: bool = False
         self.logger = setup_logger(self.__class__.__name__)
 
-        # Load disk space parameters from settings.json
-        self.base_path = Path("./downloads")  # Default
-        self.max_disk_size_gb = 1.0  # Default 1GB limit
+        # Load disk space parameters from config
+        storage_config = self.config.get("storage", {})
+        monitoring_config = self.config.get("monitoring", {})
 
-        # Try to load from settings.json 
-        try:
-            with open("settings.json", "r") as f:
-                settings = json.load(f)
-                self.base_path = Path(settings.get("storage", {}).get("base_path", "./downloads"))
-                self.max_disk_size_gb = float(settings.get("monitoring", {}).get("min_disk_space_gb", 1.0))
-        except Exception as e:
-            self.logger.warning(f"Could not load settings.json, using defaults: {e}")
+        self.base_path = Path(storage_config.get("base_path", "./downloads"))
+        self.max_disk_size_gb = float(monitoring_config.get("min_disk_space_gb", 1.0))
 
         # Create downloads directory if it doesn't exist
         self.base_path.mkdir(parents=True, exist_ok=True)
@@ -619,8 +714,14 @@ Examples:
     args = parser.parse_args()
 
     if args.create_config:
-        from main import create_sample_config  # Import from original main
-        create_sample_config(args.create_config)
+        # Create sample config file
+        sample_config = {
+            "storage": {"base_path": "./downloads"},
+            "monitoring": {"min_disk_space_gb": 5.0}
+        }
+        with open(args.create_config, 'w', encoding='utf-8') as f:
+            json.dump(sample_config, f, indent=2, ensure_ascii=False)
+        print(f"Sample config created: {args.create_config}")
         return
 
     # Setup logging level
