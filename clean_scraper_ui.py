@@ -9,7 +9,7 @@ ENHANCEMENTS:
 """
 
 import tkinter as tk
-from tkinter import ttk, scrolledtext, messagebox
+from tkinter import ttk, scrolledtext, messagebox, filedialog
 import threading
 import subprocess
 import time
@@ -58,7 +58,8 @@ class FikFapScraperUI:
             "videos_downloaded": 0,
             "files_created": 0,
             "disk_usage_gb": 0.0,
-            "disk_limit_gb": 2.0
+            "disk_limit_gb": 2.0,
+            "downloads_path": "./downloads"
         }
         
         # Queue for thread communication
@@ -101,7 +102,7 @@ class FikFapScraperUI:
 
         # Disk limit setting
         disk_frame = tk.Frame(settings_frame, bg='#3d3d3d')
-        disk_frame.pack(fill=tk.X, padx=10, pady=10)
+        disk_frame.pack(fill=tk.X, padx=10, pady=5)
 
         tk.Label(
             disk_frame,
@@ -122,6 +123,43 @@ class FikFapScraperUI:
             insertbackground='#ffffff'
         )
         disk_entry.pack(side=tk.LEFT, padx=(10, 0))
+
+        # Downloads directory setting
+        downloads_frame = tk.Frame(settings_frame, bg='#3d3d3d')
+        downloads_frame.pack(fill=tk.X, padx=10, pady=5)
+
+        tk.Label(
+            downloads_frame,
+            text="Downloads Directory:",
+            font=("Arial", 10),
+            fg='#ffffff',
+            bg='#3d3d3d'
+        ).pack(side=tk.LEFT)
+
+        self.downloads_path_var = tk.StringVar(value="./downloads")
+        downloads_entry = tk.Entry(
+            downloads_frame,
+            textvariable=self.downloads_path_var,
+            width=40,
+            font=("Arial", 10),
+            bg='#555555',
+            fg='#ffffff',
+            insertbackground='#ffffff'
+        )
+        downloads_entry.pack(side=tk.LEFT, padx=(10, 5))
+
+        browse_button = tk.Button(
+            downloads_frame,
+            text="Browse",
+            command=self.browse_downloads_directory,
+            font=("Arial", 9),
+            bg='#666666',
+            fg='white',
+            relief=tk.RAISED,
+            bd=2,
+            padx=15
+        )
+        browse_button.pack(side=tk.LEFT)
 
         # Control buttons frame
         control_frame = tk.Frame(main_frame, bg='#2b2b2b')
@@ -213,16 +251,41 @@ class FikFapScraperUI:
         )
         self.stats_text.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
+    def browse_downloads_directory(self):
+        """Open directory browser for downloads location"""
+        current_path = self.downloads_path_var.get()
+        if not Path(current_path).exists():
+            current_path = os.path.expanduser("~")
+        
+        selected_directory = filedialog.askdirectory(
+            title="Select Downloads Directory",
+            initialdir=current_path
+        )
+        
+        if selected_directory:
+            self.downloads_path_var.set(selected_directory)
+            self.stats["downloads_path"] = selected_directory
+            self.log_message(f"Downloads directory changed to: {selected_directory}")
+
     def load_settings(self):
         """Load settings from JSON file"""
         try:
             if Path("settings.json").exists():
                 with open("settings.json", "r", encoding='utf-8') as f:
                     settings = json.load(f)
+                    
+                    # Load monitoring settings
                     monitoring = settings.get("monitoring", {})
                     disk_limit = monitoring.get("min_disk_space_gb", 2.0)
                     self.disk_limit_var.set(str(disk_limit))
                     self.stats["disk_limit_gb"] = disk_limit
+                    
+                    # Load storage settings
+                    storage = settings.get("storage", {})
+                    downloads_path = storage.get("base_path", "./downloads")
+                    self.downloads_path_var.set(downloads_path)
+                    self.stats["downloads_path"] = downloads_path
+                    
         except Exception as e:
             self.log_message(f"Error loading settings: {e}")
 
@@ -230,12 +293,13 @@ class FikFapScraperUI:
         """Save current settings to JSON file"""
         try:
             settings = {
-                "storage": {"base_path": "./downloads"},
+                "storage": {"base_path": self.downloads_path_var.get()},
                 "monitoring": {"min_disk_space_gb": float(self.disk_limit_var.get())}
             }
             with open("settings.json", "w", encoding='utf-8') as f:
                 json.dump(settings, f, indent=2, ensure_ascii=False)
             self.stats["disk_limit_gb"] = float(self.disk_limit_var.get())
+            self.stats["downloads_path"] = self.downloads_path_var.get()
         except Exception as e:
             self.log_message(f"Error saving settings: {e}")
 
@@ -264,6 +328,7 @@ class FikFapScraperUI:
         self.stats_text.config(state=tk.DISABLED)
         
         self.log_message("=== STARTING FIKFAP SCRAPER ===")
+        self.log_message(f"Downloads directory: {self.stats['downloads_path']}")
         self.log_message(f"Disk space limit: {self.stats['disk_limit_gb']} GB")
         self.log_message("Process will auto-terminate when limit is exceeded")
         self.log_message("")
@@ -532,6 +597,7 @@ Cycles Completed: {self.stats['cycles_completed']}
 Posts Processed: {self.stats['posts_processed']}
 Videos Downloaded: {self.stats['videos_downloaded']}
 Files Created: {self.stats['files_created']}
+Downloads Path: {self.stats['downloads_path']}
 Disk Limit: {self.stats['disk_limit_gb']} GB
 
 Process Status: {"RUNNING" if self.is_running else "STOPPED"}
