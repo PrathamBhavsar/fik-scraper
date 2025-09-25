@@ -1,11 +1,12 @@
 """
-UPDATED main.py - FikFap Scraper with Video Downloader Integration and Progress Tracking
+UPDATED main.py - FikFap Scraper with Live Disk Space Limit Enforcement
 
 FIXES APPLIED:
-1. Removed all references to 'total_posts' 
-2. Uses progress.json for tracking downloaded videos
-3. No creation of download_results.json files
-4. Fixed 'total_posts' error by using progress tracker statistics
+1. Added live disk space limit checking before and after each cycle
+2. Uses actual directory size calculation (not free space)  
+3. Immediately stops execution when downloads directory exceeds max size
+4. Loads max size from settings.json -> monitoring.min_disk_space_gb
+5. Graceful shutdown with proper logging
 """
 
 import asyncio
@@ -25,7 +26,7 @@ from video_downloader_organizer import VideoDownloaderOrganizer
 from core.config import Config, config
 from core.exceptions import *
 from utils.logger import setup_logger
-from utils.disk_space import get_free_space_gb
+from utils.disk_space import get_free_space_gb, get_directory_size_gb, check_disk_space_limit
 
 
 class FikFapMainApplicationWithDownloader:
@@ -345,7 +346,7 @@ class FikFapMainApplicationWithDownloader:
 
 
 class EnhancedContinuousRunner:
-    """Enhanced continuous runner with video-download integration and disk-space monitoring."""
+    """Enhanced continuous runner with video-download integration and LIVE disk space limit enforcement."""
 
     def __init__(
         self,
@@ -362,14 +363,21 @@ class EnhancedContinuousRunner:
         self.stop_requested: bool = False
         self.logger = setup_logger(self.__class__.__name__)
 
-        # --- NEW: initialise disk-space parameters from global config
-        cfg = getattr(self.integrator, "config", None)
-        self.base_path = Path(
-            cfg.get("storage.base_path", "./downloads") if cfg else "./downloads"
-        )
-        self.disk_threshold_gb: float = float(
-            cfg.get("monitoring.min_disk_space_gb", 1.0) if cfg else 1.0
-        )
+        # Load disk space parameters from settings.json
+        self.base_path = Path("./downloads")  # Default
+        self.max_disk_size_gb = 1.0  # Default 1GB limit
+
+        # Try to load from settings.json 
+        try:
+            with open("settings.json", "r") as f:
+                settings = json.load(f)
+                self.base_path = Path(settings.get("storage", {}).get("base_path", "./downloads"))
+                self.max_disk_size_gb = float(settings.get("monitoring", {}).get("min_disk_space_gb", 1.0))
+        except Exception as e:
+            self.logger.warning(f"Could not load settings.json, using defaults: {e}")
+
+        # Create downloads directory if it doesn't exist
+        self.base_path.mkdir(parents=True, exist_ok=True)
 
         # Statistics
         self.continuous_stats = {
@@ -384,13 +392,48 @@ class EnhancedContinuousRunner:
             "total_files_created": 0,
         }
 
+        self.logger.info(f"Disk space monitoring: {self.base_path} (max: {self.max_disk_size_gb} GB)")
+
     def request_stop(self):
         """Request stop of continuous loop"""
         self.stop_requested = True
         self.logger.info("Enhanced continuous runner stop requested")
 
+    def check_disk_space_limit(self) -> bool:
+        """
+        Check if downloads directory size exceeds the configured limit.
+        Returns True if within limits, False if exceeded (should stop).
+        """
+        try:
+            space_check = check_disk_space_limit(self.base_path, self.max_disk_size_gb)
+
+            current_size = space_check['current_size_gb']
+            exceeds_limit = space_check['exceeds_limit']
+
+            self.logger.debug(
+                f"Disk space check: {current_size:.2f} GB used, "
+                f"limit: {self.max_disk_size_gb:.2f} GB, "
+                f"free space: {space_check['free_space_gb']:.2f} GB"
+            )
+
+            if exceeds_limit:
+                self.logger.error(
+                    f"DISK SPACE LIMIT EXCEEDED! "
+                    f"Downloads directory size: {current_size:.2f} GB >= "
+                    f"configured limit: {self.max_disk_size_gb:.2f} GB. "
+                    f"Stopping process immediately for safety."
+                )
+                return False
+
+            return True
+
+        except Exception as e:
+            self.logger.error(f"Error checking disk space: {e}")
+            # If we can't check, assume it's safe to continue
+            return True
+
     async def run_continuous_loop(self):
-        """Run enhanced continuous loop with download integration and disk space guard."""
+        """Run enhanced continuous loop with download integration and LIVE disk space limit enforcement."""
         self.continuous_stats["start_time"] = datetime.now()
         interval = self.config_override.get("continuous.loop_interval", 300)
         max_failures = self.config_override.get("continuous.max_consecutive_failures", 5)
@@ -399,18 +442,17 @@ class EnhancedContinuousRunner:
         self.logger.info(
             f"Starting enhanced continuous loop "
             f"(interval={interval}s, downloads={self.download_enabled}, "
-            f"disk_threshold={self.disk_threshold_gb:.2f} GB)"
+            f"disk_limit={self.max_disk_size_gb:.2f} GB)"
         )
 
         while not self.stop_requested:
-            # --- NEW: disk-space check BEFORE starting each cycle ---
-            free_gb = get_free_space_gb(self.base_path)
-            if free_gb < self.disk_threshold_gb:
-                self.logger.warning(
-                    f"Free disk space {free_gb:.2f} GB is below configured "
-                    f"minimum {self.disk_threshold_gb:.2f} GB -- stopping loop."
-                )
-                break  # graceful exit – final stats logged in finally-block
+            # --- CRITICAL: Live disk space check BEFORE starting each cycle ---
+            if not self.check_disk_space_limit():
+                self.logger.critical("Disk space limit exceeded - terminating process immediately")
+                # Log final stats before exiting
+                self.log_final_stats()
+                # Force exit the entire process
+                sys.exit(1)
 
             cycle_start = datetime.now()
             self.continuous_stats["total_cycles"] += 1
@@ -450,11 +492,20 @@ class EnhancedContinuousRunner:
                         files = summary.get("total_files", 0)
                         download_info = f", {vids} videos downloaded, {files} files"
 
-                    self.logger.info(
+                    # --- CRITICAL: Live disk space check AFTER cycle completion ---
+                    cycle_log = (
                         f"Cycle {self.continuous_stats['total_cycles']} finished: "
                         f"{scrape_result.get('posts_processed', 0)} posts processed"
                         f"{download_info} in {cycle_duration:.2f}s"
                     )
+                    self.logger.info(cycle_log)
+
+                    # Check disk space after logging cycle completion
+                    if not self.check_disk_space_limit():
+                        self.logger.critical("Disk space limit exceeded after cycle - terminating process immediately")
+                        self.log_final_stats()
+                        sys.exit(1)
+
                 else:
                     self.continuous_stats["failed_cycles"] += 1
                     self.continuous_stats["consecutive_failures"] += 1
@@ -511,10 +562,17 @@ class EnhancedContinuousRunner:
                 f"{self.continuous_stats['total_files_created']} files"
             )
 
+        # Include current disk usage in stats
+        try:
+            current_size = get_directory_size_gb(self.base_path)
+            disk_info = f", disk: {current_size:.2f}/{self.max_disk_size_gb:.2f} GB"
+        except Exception:
+            disk_info = ""
+
         self.logger.info(
             f"Enhanced Stats: {total} cycles, {success_rate:.1f}% success rate, "
             f"{cycles_per_hour:.1f} cycles/hour, {self.continuous_stats['total_posts_processed']} posts"
-            f"{download_info}"
+            f"{download_info}{disk_info}"
         )
 
     def log_final_stats(self):
@@ -526,7 +584,7 @@ class EnhancedContinuousRunner:
 # Enhanced main entry point with download integration
 async def main():
     parser = argparse.ArgumentParser(
-        description="FikFap Complete Scraping and Video Download System",
+        description="FikFap Complete Scraping and Video Download System with Disk Space Limits",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
