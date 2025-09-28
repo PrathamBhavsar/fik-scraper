@@ -274,44 +274,93 @@ class VideoDownloaderOrganizer:
         except Exception as e:
             print(f"Debug: Error downloading {quality} init.mp4: {e}")
             return False
+        
+    def construct_audio_init_url(self, video_tokens: Dict[str, str]) -> str:
+        """
+        Construct the audio init.mp4 URL using the preserved token parameters
+        Format: https://vz-{host_uuid}.b-cdn.net/{full_token_part}/{video_uuid}/audio/init.mp4
+        """
+        required_keys = ['host_uuid', 'video_uuid', 'full_token_part']
+        if not all(key in video_tokens for key in required_keys):
+            missing = [key for key in required_keys if key not in video_tokens]
+            raise ValueError(f"Missing required tokens to construct audio init URL: {missing}")
+
+        # Construct URL with /audio/ path for audio init.mp4
+        url = (f"https://vz-{video_tokens['host_uuid']}.b-cdn.net/"
+            f"{video_tokens['full_token_part']}/"
+            f"{video_tokens['video_uuid']}/audio/init.mp4")
+
+        print(f"Debug: Constructed audio init.mp4 URL: {url}")
+        return url
+
+    async def download_audio_init(self, video_tokens: Dict[str, str], audio_dir: Path) -> bool:
+        """
+        Download audio init.mp4 file - now saved as 'init.mp4' in audio directory
+        """
+        try:
+            # Construct audio init URL
+            audio_init_url = self.construct_audio_init_url(video_tokens)
+            # Changed filename from audio_init.mp4 to init.mp4
+            audio_init_path = audio_dir / "init.mp4"
+            
+            print(f"Downloading audio init.mp4...")
+            
+            # Download using the existing download_init_file method
+            success = await self.download_init_file(audio_init_url, audio_init_path, "audio")
+            
+            if success:
+                print(f"Successfully downloaded audio init.mp4 to {audio_init_path}")
+            else:
+                print(f"Failed to download audio init.mp4")
+                
+            return success
+            
+        except Exception as e:
+            print(f"Error downloading audio init.mp4: {e}")
+            return False
+
+
 
     async def download_and_organize_post(self, post_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Download and organize a single post according to the folder structure"""
+        """
+        Updated method that includes audio download after video qualities
+        Replace the existing download_and_organize_post method with this
+        """
         try:
             post_id = str(post_data.get("postId", "unknown"))
-            print(f"Processing post {post_id}: {str(post_data.get('label', ''))[:50]}...")
-
+            print(f"\nProcessing post {post_id}: {str(post_data.get('label', ''))[:50]}...")
+            
             # Check if already downloaded
             if self.progress_tracker.is_video_downloaded(post_id):
                 print(f"Post {post_id} already downloaded, skipping...")
                 return {"success": True, "post_id": post_id, "skipped": True, "reason": "already_downloaded"}
-
+            
             # Create post directory structure
             post_dir = self.base_download_path / post_id
             post_dir.mkdir(parents=True, exist_ok=True)
-
+            
             # Create m3u8 subdirectory
             m3u8_dir = post_dir / "m3u8"
             m3u8_dir.mkdir(parents=True, exist_ok=True)
-
+            
             # Save metadata
             await self.save_metadata(post_data, post_dir / "data.json")
-
+            
             # Get main playlist URL
             video_stream_url = post_data.get("videoStreamUrl")
             if not video_stream_url:
                 return {"success": False, "error": "No video stream URL found", "post_id": post_id}
-
+            
             # Check if video is ready
             if not post_data.get("isBunnyVideoReady", False):
                 print(f"Video not ready for post {post_id}, skipping...")
                 return {"success": False, "error": "Video not ready (isBunnyVideoReady=false)", "post_id": post_id}
-
+            
             # Download and analyze main playlist
             playlist_result = await self.download_main_playlist(video_stream_url, m3u8_dir, post_data)
             if not playlist_result["success"]:
                 return {"success": False, "error": playlist_result["error"], "post_id": post_id}
-
+            
             # Download all quality variants
             qualities_result = await self.download_all_qualities(
                 playlist_result["qualities"],
@@ -319,10 +368,22 @@ class VideoDownloaderOrganizer:
                 video_stream_url,
                 post_data
             )
-
+            
+            # === NEW: Download audio stream ===
+            audio_result = await self.download_audio_stream(
+                m3u8_dir,
+                playlist_result.get("main_playlist_path"),
+                video_stream_url
+            )
+            
             # Mark as successfully downloaded in progress
             self.progress_tracker.add_downloaded_video(post_id)
-
+            
+            # Calculate total files including audio
+            total_files = qualities_result["total_files"]
+            if audio_result.get("success"):
+                total_files += len(audio_result.get("audio_files", []))
+            
             result = {
                 "success": True,
                 "post_id": post_id,
@@ -330,12 +391,25 @@ class VideoDownloaderOrganizer:
                 "main_playlist": playlist_result.get("main_playlist_path"),
                 "qualities_downloaded": qualities_result["successful"],
                 "qualities_failed": qualities_result["failed"],
-                "total_files": qualities_result["total_files"]
+                "audio": audio_result,  # Add audio result
+                "total_files": total_files,
+                "summary": {
+                    "video_qualities": len(qualities_result["successful"]),
+                    "video_segments": qualities_result["total_files"],
+                    "audio_found": audio_result.get("audio_found", False),
+                    "audio_segments": audio_result.get("downloaded_segments", 0)
+                }
             }
-
-            print(f"Post {post_id} completed: {len(qualities_result['successful'])} qualities downloaded")
+            
+            print(f"\n✓ Post {post_id} completed:")
+            print(f"  - Video: {len(qualities_result['successful'])} qualities, {qualities_result['total_files']} files")
+            if audio_result.get("audio_found"):
+                print(f"  - Audio: {audio_result.get('downloaded_segments', 0)}/{audio_result.get('total_segments', 0)} segments")
+            else:
+                print(f"  - Audio: Not found")
+            
             return result
-
+            
         except Exception as e:
             print(f"Error processing post {post_id}: {e}")
             return {"success": False, "error": str(e), "post_id": post_id}
@@ -623,8 +697,321 @@ class VideoDownloaderOrganizer:
             "total_files": total_files
         }
 
+
+    async def download_file_with_retries(self, url: str, file_path: Path, is_binary: bool = True, max_retries: int = 3) -> bool:
+        """
+        Generic file downloader with retry logic for both binary and text files
+        """
+        for attempt in range(max_retries):
+            try:
+                request_headers = {
+                    "accept": "*/*",
+                    "accept-language": "en-US,en;q=0.9",
+                    "origin": "https://fikfap.com",
+                    "referer": "https://fikfap.com/",
+                    "sec-ch-ua": '"Chromium";v="140", "Not=A?Brand";v="24", "Google Chrome";v="140"',
+                    "sec-ch-ua-mobile": "?0",
+                    "sec-ch-ua-platform": '"Windows"',
+                    "sec-fetch-dest": "empty",
+                    "sec-fetch-mode": "cors",
+                    "sec-fetch-site": "cross-site",
+                    "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
+                }
+                
+                async with self.session.get(url, headers=request_headers) as response:
+                    if response.status == 200:
+                        file_path.parent.mkdir(parents=True, exist_ok=True)
+                        
+                        if is_binary:
+                            with open(file_path, 'wb') as f:
+                                async for chunk in response.content.iter_chunked(8192):
+                                    f.write(chunk)
+                        else:
+                            content = await response.text()
+                            with open(file_path, 'w', encoding='utf-8') as f:
+                                f.write(content)
+                        
+                        # Verify file was written
+                        if file_path.exists() and file_path.stat().st_size > 0:
+                            return True
+                            
+                    elif response.status in [403, 429, 500, 502, 503, 504] and attempt < max_retries - 1:
+                        wait_time = min(2 ** attempt, 10)  # Max 10 seconds wait
+                        print(f"  Retryable error {response.status}, waiting {wait_time}s...")
+                        await asyncio.sleep(wait_time)
+                        continue
+                    else:
+                        print(f"  Failed with status {response.status}")
+                        
+            except Exception as e:
+                print(f"  Download error (attempt {attempt + 1}/{max_retries}): {e}")
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(min(2 ** attempt, 10))
+                    continue
+        
+        return False
+
+    def parse_m3u8_attributes(self, line: str) -> Dict[str, str]:
+        """
+        Parse key=value pairs from M3U8 attribute lines
+        Handles quoted values and comma separation correctly
+        """
+        attrs = {}
+        if ':' in line:
+            line = line.split(':', 1)[1]
+        
+        # Manual parsing to handle quoted values with commas
+        pairs = []
+        current = ''
+        in_quotes = False
+        
+        for c in line:
+            if c == '"':
+                in_quotes = not in_quotes
+                current += c
+            elif c == ',' and not in_quotes:
+                if current.strip():
+                    pairs.append(current.strip())
+                current = ''
+            else:
+                current += c
+        
+        if current.strip():
+            pairs.append(current.strip())
+        
+        # Parse each pair
+        for pair in pairs:
+            if '=' in pair:
+                k, v = pair.split('=', 1)
+                # Remove quotes from value if present
+                v = v.strip()
+                if v.startswith('"') and v.endswith('"'):
+                    v = v[1:-1]
+                attrs[k.strip()] = v
+        
+        return attrs
+
+    def resolve_audio_url(self, uri: str, base_url: str) -> str:
+        """
+        Resolve audio URL - handles both relative and absolute URLs
+        Special handling for audio paths
+        """
+        if uri.startswith("http://") or uri.startswith("https://"):
+            return uri
+        
+        # For audio, we need to construct based on the CDN pattern
+        parsed = urlparse(base_url)
+        
+        # If URI starts with /, it's absolute from domain
+        if uri.startswith("/"):
+            return f"{parsed.scheme}://{parsed.netloc}{uri}"
+        
+        # For relative paths like "audio/audio.m3u8"
+        # We need to insert it into the correct position in the URL
+        base_parts = parsed.path.rstrip('/').split('/')
+        
+        # Remove 'playlist.m3u8' if it's at the end
+        if base_parts and base_parts[-1].endswith('.m3u8'):
+            base_parts.pop()
+        
+        # Construct the new path
+        new_path = '/'.join(base_parts) + '/' + uri
+        
+        return f"{parsed.scheme}://{parsed.netloc}{new_path}"
+
+    def parse_audio_segments(self, playlist_content: str, playlist_url: str) -> List[str]:
+        """
+        Parse audio segments from audio.m3u8 playlist content
+        Returns list of absolute URLs for .m4a segments
+        """
+        segments = []
+        lines = playlist_content.strip().split('\n')
+        
+        for line in lines:
+            line = line.strip()
+            
+            # Skip empty lines and M3U8 directives
+            if not line or line.startswith('#'):
+                continue
+            
+            # This should be a segment URL (usually like segment0.m4a, segment1.m4a, etc.)
+            segment_url = self.resolve_audio_url(line, playlist_url)
+            segments.append(segment_url)
+        
+        return segments
+
+    async def download_audio_stream(self, m3u8_dir: Path, main_playlist_path: str, video_stream_url: str) -> Dict[str, Any]:
+        """
+        Complete audio stream downloader with audio init.mp4 support
+        Downloads audio files to [videoid]/m3u8/audio/ subdirectory
+        """
+        try:
+            print("\nChecking for audio stream...")
+            
+            # Read the main playlist to find audio streams
+            if not main_playlist_path or not Path(main_playlist_path).exists():
+                return {"audio_found": False, "reason": "No master playlist found"}
+            
+            with open(main_playlist_path, 'r', encoding='utf-8') as f:
+                master_content = f.read()
+            
+            # Method 1: Look for explicit audio media definition
+            audio_uri = None
+            lines = master_content.strip().split('\n')
+            
+            for line in lines:
+                if line.startswith("#EXT-X-MEDIA") and "TYPE=AUDIO" in line:
+                    attrs = self.parse_m3u8_attributes(line)
+                    if "URI" in attrs:
+                        audio_uri = attrs["URI"]
+                        print(f"Found audio stream in #EXT-X-MEDIA: {audio_uri}")
+                        break
+            
+            # Method 2: Based on your cURL example, construct audio URL directly
+            if not audio_uri:
+                # Parse the video stream URL to construct audio URL
+                parsed = urlparse(video_stream_url)
+                path_parts = parsed.path.strip('/').split('/')
+                
+                if len(path_parts) >= 2:
+                    # Replace 'playlist.m3u8' with 'audio/audio.m3u8'
+                    audio_uri = "audio/audio.m3u8"
+                    print(f"Constructing audio URI from pattern: {audio_uri}")
+            
+            if not audio_uri:
+                return {"audio_found": False, "reason": "No audio stream detected"}
+            
+            # Construct full audio playlist URL
+            audio_playlist_url = self.resolve_audio_url(audio_uri, video_stream_url)
+            print(f"Audio playlist URL: {audio_playlist_url}")
+            
+            # Create audio subdirectory
+            audio_dir = m3u8_dir / "audio"
+            audio_dir.mkdir(parents=True, exist_ok=True)
+            print(f"Created audio directory: {audio_dir}")
+            
+            # Download audio playlist to audio subdirectory
+            audio_playlist_path = audio_dir / "audio.m3u8"
+            print(f"Downloading audio playlist...")
+            
+            audio_playlist_success = await self.download_file_with_retries(
+                audio_playlist_url,
+                audio_playlist_path,
+                is_binary=False,
+                max_retries=3
+            )
+            
+            if not audio_playlist_success:
+                print(f"Failed to download audio playlist from {audio_playlist_url}")
+                return {
+                    "audio_found": True,
+                    "audio_playlist_url": audio_playlist_url,
+                    "success": False,
+                    "reason": "Failed to download audio playlist"
+                }
+            
+            # =====================================================
+            # Download audio init.mp4 to audio subdirectory
+            # =====================================================
+            
+            # Parse video stream URL to get tokens
+            video_tokens = self.parse_videostream_url_fixed(video_stream_url)
+            audio_init_success = False
+            
+            if video_tokens:
+                audio_init_success = await self.download_audio_init(video_tokens, audio_dir)
+            else:
+                print("Warning: Could not parse videoStreamUrl tokens, skipping audio init.mp4")
+            
+            # =====================================================
+            # END: Audio init.mp4 download
+            # =====================================================
+            
+            # Parse audio playlist for segments
+            with open(audio_playlist_path, 'r', encoding='utf-8') as f:
+                audio_playlist_content = f.read()
+            
+            audio_segments = self.parse_audio_segments(audio_playlist_content, audio_playlist_url)
+            
+            if not audio_segments:
+                return {
+                    "audio_found": True,
+                    "audio_playlist_path": str(audio_playlist_path),
+                    "audio_init_downloaded": audio_init_success,
+                    "success": False,
+                    "reason": "No audio segments found in playlist"
+                }
+            
+            print(f"Found {len(audio_segments)} audio segments to download")
+            
+            # Download all audio segments to audio subdirectory
+            audio_files = []
+            failed_segments = []
+            
+            # Add audio.m3u8 to files list
+            audio_files.append("audio.m3u8")
+            
+            # Add init.mp4 if it was downloaded (renamed from audio_init.mp4)
+            if audio_init_success:
+                audio_files.append("init.mp4")
+            
+            for idx, segment_url in enumerate(audio_segments, 1):
+                segment_name = f"audio{idx}.m4a"
+                segment_path = audio_dir / segment_name  # Save to audio subdirectory
+                
+                # Progress indicator
+                if idx % 10 == 0 or idx == 1:
+                    print(f"  Downloading audio segment {idx}/{len(audio_segments)}...")
+                
+                success = await self.download_file_with_retries(
+                    segment_url,
+                    segment_path,
+                    is_binary=True,
+                    max_retries=2
+                )
+                
+                if success:
+                    audio_files.append(segment_name)
+                else:
+                    failed_segments.append(idx)
+                    print(f"  Failed to download audio segment {idx}: {segment_url}")
+            
+            # Calculate success
+            segments_downloaded = len(audio_files) - (2 if audio_init_success else 1)  # Subtract playlist and init files
+            success_rate = segments_downloaded / len(audio_segments) * 100 if audio_segments else 0
+            
+            result = {
+                "audio_found": True,
+                "audio_dir": str(audio_dir),
+                "audio_playlist_path": str(audio_playlist_path),
+                "audio_playlist_url": audio_playlist_url,
+                "audio_init_downloaded": audio_init_success,
+                "success": segments_downloaded > 0,
+                "audio_files": audio_files,
+                "total_segments": len(audio_segments),
+                "downloaded_segments": segments_downloaded,
+                "failed_segments": failed_segments,
+                "success_rate": f"{success_rate:.1f}%"
+            }
+            
+            if segments_downloaded > 0:
+                print(f"✔ Audio downloaded to {audio_dir}: {segments_downloaded}/{len(audio_segments)} segments ({success_rate:.1f}%)")
+                if audio_init_success:
+                    print(f"  - Audio init.mp4: Downloaded")
+            else:
+                print(f"✗ Audio download failed: 0/{len(audio_segments)} segments")
+            
+            return result
+            
+        except Exception as e:
+            print(f"Error in audio download: {e}")
+            import traceback
+            traceback.print_exc()
+            return {"audio_found": False, "error": str(e)}
+
+      
     async def download_quality_variant(self, quality: Dict[str, Any], quality_dir: Path, base_url: str, post_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Download a specific quality variant with enhanced authentication + init.mp4 download (FIXED URL PARSING)"""
+        """Download a specific quality variant with video init.mp4"""
         try:
             playlist_url = quality["url"]
 
@@ -657,43 +1044,35 @@ class VideoDownloaderOrganizer:
 
             print(f"Found {len(segments)} segments to download")
 
-            # =====================================================
-            # FIXED: Download init.mp4 file for this quality
-            # =====================================================
-
-            # Parse the videoStreamUrl to extract tokens using FIXED parsing
+            # Download video init.mp4 file for this quality
             video_stream_url = post_data.get("videoStreamUrl", "")
             video_tokens = self.parse_videostream_url_fixed(video_stream_url)
+            video_init_success = False
 
             if video_tokens:
                 try:
-                    # Construct init.mp4 URL for this quality using FIXED method
+                    # Construct init.mp4 URL for this quality
                     init_url = self.construct_init_url_fixed(video_tokens, quality["resolution"])
                     init_file_path = quality_dir / "init.mp4"
 
                     # Download init.mp4
-                    init_success = await self.download_init_file(init_url, init_file_path, quality["resolution"])
+                    video_init_success = await self.download_init_file(init_url, init_file_path, quality["resolution"])
 
-                    if init_success:
-                        print(f"Successfully downloaded init.mp4 for {quality['resolution']}")
+                    if video_init_success:
+                        print(f"Successfully downloaded video init.mp4 for {quality['resolution']}")
                     else:
-                        print(f"Failed to download init.mp4 for {quality['resolution']}")
+                        print(f"Failed to download video init.mp4 for {quality['resolution']}")
 
                 except Exception as e:
-                    print(f"Error downloading init.mp4 for {quality['resolution']}: {e}")
+                    print(f"Error downloading video init.mp4 for {quality['resolution']}: {e}")
             else:
-                print(f"Warning: Could not parse videoStreamUrl tokens, skipping init.mp4 for {quality['resolution']}")
-
-            # =====================================================
-            # END: init.mp4 download logic
-            # =====================================================
+                print(f"Warning: Could not parse videoStreamUrl tokens, skipping video init.mp4 for {quality['resolution']}")
 
             # Download segments
             downloaded_files = ["video.m3u8"]  # Include the playlist file
 
             # Add init.mp4 to downloaded files if it exists
-            init_file_path = quality_dir / "init.mp4"
-            if init_file_path.exists():
+            if video_init_success:
                 downloaded_files.append("init.mp4")
 
             for i, segment_url in enumerate(segments, 1):
@@ -711,18 +1090,19 @@ class VideoDownloaderOrganizer:
 
                             # Progress update every 10 segments
                             if i % 10 == 0:
-                                print(f"Downloaded {i}/{len(segments)} segments...")
+                                print(f"  Downloaded {i}/{len(segments)} segments...")
                         else:
-                            print(f"Failed to download segment {i}: HTTP {response.status}")
+                            print(f"  Failed to download segment {i}: HTTP {response.status}")
 
                 except Exception as e:
-                    print(f"Error downloading segment {i}: {e}")
+                    print(f"  Error downloading segment {i}: {e}")
                     continue
 
             return {
                 "success": True,
                 "file_count": len(downloaded_files),
-                "files": downloaded_files
+                "files": downloaded_files,
+                "video_init_downloaded": video_init_success
             }
 
         except Exception as e:
